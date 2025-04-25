@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     // Add this line if it's missing // This line was added previously to fix icon issue
     implementation("androidx.compose.material:material-icons-extended:1.6.6")
+    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation("androidx.navigation:navigation-compose:2.7.7") // Or the latest version

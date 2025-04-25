@@ -1,3 +1,42 @@
 <resources>
-    <string name="app_name">MerchantApp</string>
+    <string name="app_name">Merchant App</string>
+    <string name="action_logout">Logout</string>
+    <string name="title_amount_entry">Enter Amount</string>
+    <string name="title_summary">Transaction Summary</string>
+    <string name="title_analytics">Analytics</string>
+
+    <!-- Registration Screen Strings -->
+    <string name="register_title">Merchant Registration</string>
+    <string name="action_back">Back</string>
+    <string name="register_instructions">Enter your store details to apply for registration. Your application will be reviewed by an administrator.</string>
+    <string name="label_store_name">Store Name</string>
+    <string name="placeholder_store_name">e.g., Main Street Groceries</string>
+    <string name="label_contact_name">Contact Person Name</string>
+    <string name="placeholder_contact_name">e.g., John Doe</string>
+    <string name="label_email">Contact Email</string>
+    <string name="placeholder_email">e.g., contact@store.com</string>
+    <string name="label_phone">Contact Phone</string>
+    <string name="placeholder_phone">e.g., (555) 123-4567</string>
+    <string name="label_address">Store Address</string>
+    <string name="placeholder_address">e.g., 123 Main St, Anytown</string>
+    <string name="label_password">Password</string>
+    <string name="placeholder_password">Choose a secure password</string>
+    <string name="label_confirm_password">Confirm Password</string>
+    <string name="placeholder_confirm_password">Re-enter your password</string>
+    <string name="button_submit_registration">Submit Registration</string>
+    <string name="registration_failed">Registration Failed. Please try again.</string>
+    <string name="registration_successful">Registration submitted successfully!</string>
+
+    <!-- Registration Screen Validation -->
+    <string name="validation_required_field">*</string>
+    <string name="validation_fill_all_fields">Please fill in all required fields marked with *</string>
+    <string name="validation_passwords_mismatch">Passwords do not match.</string>
+    <string name="validation_password_too_short">Password must be at least 6 characters long.</string>
+    <string name="label_password_requirement">Minimum 6 characters</string>
+
+    <!-- Bottom Navigation Labels -->
+    <string name="bottom_nav_home">Home</string>
+    <string name="bottom_nav_summary">Summary</string>
+    <string name="bottom_nav_analytics">Analytics</string>
+
 </resources>

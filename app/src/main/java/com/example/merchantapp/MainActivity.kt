@@ -1,29 +1,40 @@
 // File: app/src/main/java/com/example/merchantapp/MainActivity.kt
 package com.example.merchantapp
 
+// REMOVED imports related to language: SharedPreferences, Context, AppCompatDelegate, LocaleListCompat, KTX edit
 import android.os.Bundle
 import android.util.Log
-// import android.widget.Toast // Can remove if not used directly here anymore
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+// androidx.appcompat.app.AppCompatDelegate - REMOVED (or keep if needed elsewhere)
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable // ADDED
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.NavHost // ADDED
-import androidx.navigation.compose.composable // ADDED
-import androidx.navigation.compose.rememberNavController // ADDED
-import com.example.merchantapp.navigation.AppDestinations // ADDED
+// androidx.core.content.edit - REMOVED
+// androidx.core.os.LocaleListCompat - REMOVED
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.merchantapp.navigation.AppDestinations
 import com.example.merchantapp.ui.login.LoginScreen
-import com.example.merchantapp.ui.main.MainScreen // ADDED
-import com.example.merchantapp.ui.register.RegisterScreen // ADDED
+import com.example.merchantapp.ui.main.MainScreen
+import com.example.merchantapp.ui.register.RegisterScreen
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 
+// REMOVED Constants: PREFS_NAME, KEY_LANGUAGE, DEFAULT_LANGUAGE
+
 class MainActivity : ComponentActivity() {
+
+    // REMOVED: prefs variable
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        // REMOVED: Language application logic before super.onCreate
         super.onCreate(savedInstanceState)
+        Log.d("MainActivity", "onCreate called") // Simplified log
+
         enableEdgeToEdge()
         setContent {
             MerchantAppTheme {
@@ -31,23 +42,29 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Setup Navigation
-                    AppNavigation() // Call the main navigation composable
+                    // REMOVED: Passing language state to AppNavigation
+                    AppNavigation()
                 }
             }
         }
     }
+
+    // REMOVED: getCurrentLanguage function
+    // REMOVED: saveLanguagePreference function
+    // REMOVED: applyLocale function
+    // REMOVED: changeLanguageAndRecreate function
 }
 
+
+// MODIFIED: Removed language parameters
 @Composable
 fun AppNavigation() {
-    val navController = rememberNavController() // Create NavController instance
+    val navController = rememberNavController()
 
     NavHost(
         navController = navController,
-        startDestination = AppDestinations.LOGIN_ROUTE // Start at the Login screen
+        startDestination = AppDestinations.LOGIN_ROUTE
     ) {
-        // Login Screen Composable
         composable(AppDestinations.LOGIN_ROUTE) {
             LoginScreen(
                 onNavigateToRegister = {
@@ -56,32 +73,34 @@ fun AppNavigation() {
                 },
                 onLoginSuccess = {
                     Log.d("AppNavigation", "Login Success: Navigating to Main")
-                    // Navigate to main screen and clear login from back stack
                     navController.navigate(AppDestinations.MAIN_ROUTE) {
-                        popUpTo(AppDestinations.LOGIN_ROUTE) {
-                            inclusive = true // Remove Login screen from back stack
-                        }
-                        launchSingleTop = true // Avoid multiple copies of Main screen
+                        popUpTo(AppDestinations.LOGIN_ROUTE) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
-                // ViewModel is provided automatically by viewModel() within LoginScreen
             )
         }
 
-        // Registration Screen Composable
         composable(AppDestinations.REGISTER_ROUTE) {
+            // MODIFIED: Removed language parameters from RegisterScreen call
             RegisterScreen(
                 onNavigateBack = {
                     Log.d("AppNavigation", "Navigating back from Register")
-                    navController.popBackStack() // Simple back navigation
+                    navController.popBackStack()
                 }
             )
         }
 
-        // Main Application Screen (with Bottom Navigation) Composable
         composable(AppDestinations.MAIN_ROUTE) {
-            MainScreen() // Pass navController if needed for logout etc.
-            // MainScreen now manages its own internal navigation for bottom bar content
+            MainScreen(
+                onLogoutRequest = {
+                    Log.d("AppNavigation", "Logout Requested: Navigating to Login")
+                    navController.navigate(AppDestinations.LOGIN_ROUTE) {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
         }
     }
 }

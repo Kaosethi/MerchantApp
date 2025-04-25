@@ -1,17 +1,14 @@
 // File: app/src/main/java/com/example/merchantapp/ui/main/MainScreen.kt
-package com.example.merchantapp.ui.main // Typo comment can be ignored or fixed
+package com.example.merchantapp.ui.main
 
 import android.annotation.SuppressLint
-// import android.util.Log // REMOVED: Unused import (Line 5)
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ListAlt // CHANGED: Import AutoMirrored version
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Home
-// import androidx.compose.material.icons.filled.ListAlt // REMOVED: Deprecated import
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-// import androidx.compose.runtime.saveable.rememberSaveable // REMOVED: Unused import (Line 13)
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
@@ -26,7 +23,7 @@ import com.example.merchantapp.ui.amount.AmountEntryScreen
 import com.example.merchantapp.ui.summary.TransactionSummaryScreen
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 
-// Data class to represent a bottom navigation item
+
 data class BottomNavItem(
     val label: String,
     val icon: ImageVector,
@@ -34,28 +31,15 @@ data class BottomNavItem(
 )
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-// @OptIn(ExperimentalMaterial3Api::class) // REMOVED: Redundant opt-in (Line 36)
 @Composable
 fun MainScreen(
-    // navController: NavController // Pass the main NavController if needed for logout etc.
+    onLogoutRequest: () -> Unit // ADDED: Accept logout request callback
 ) {
     val bottomNavController = rememberNavController()
     val bottomNavItems = listOf(
-        BottomNavItem(
-            label = "Home",
-            icon = Icons.Filled.Home,
-            route = BottomNavScreens.AMOUNT_ENTRY
-        ),
-        BottomNavItem(
-            label = "Summary",
-            icon = Icons.AutoMirrored.Filled.ListAlt, // CHANGED: Use AutoMirrored icon (Line 53)
-            route = BottomNavScreens.SUMMARY
-        ),
-        BottomNavItem(
-            label = "Analytics",
-            icon = Icons.Filled.Analytics,
-            route = BottomNavScreens.ANALYTICS
-        )
+        BottomNavItem("Home", Icons.Filled.Home, BottomNavScreens.AMOUNT_ENTRY),
+        BottomNavItem("Summary", Icons.AutoMirrored.Filled.ListAlt, BottomNavScreens.SUMMARY),
+        BottomNavItem("Analytics", Icons.Filled.Analytics, BottomNavScreens.ANALYTICS)
     )
 
     Scaffold(
@@ -72,17 +56,19 @@ fun MainScreen(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavScreens.AMOUNT_ENTRY) {
-                AmountEntryScreen()
+                // MODIFIED: Pass the onLogoutRequest callback down
+                AmountEntryScreen(onLogoutRequest = onLogoutRequest)
             }
             composable(BottomNavScreens.SUMMARY) {
-                TransactionSummaryScreen()
+                TransactionSummaryScreen() // Add onLogoutRequest here too if needed later
             }
             composable(BottomNavScreens.ANALYTICS) {
-                AnalyticsDashboardScreen()
+                AnalyticsDashboardScreen() // Add onLogoutRequest here too if needed later
             }
         }
     }
 }
+
 
 @Composable
 fun BottomNavigationBar(
@@ -102,9 +88,7 @@ fun BottomNavigationBar(
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
-                            }
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -121,6 +105,7 @@ fun BottomNavigationBar(
 @Composable
 fun MainScreenPreview() {
     MerchantAppTheme {
-        MainScreen()
+        // MODIFIED: Provide dummy lambda for preview
+        MainScreen(onLogoutRequest = {})
     }
 }
