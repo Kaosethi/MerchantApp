@@ -39,4 +39,13 @@
     <string name="bottom_nav_summary">Summary</string>
     <string name="bottom_nav_analytics">Analytics</string>
 
+    <!-- QR Scan Screen -->
+    <string name="title_qr_scan">Scan Beneficiary QR</string>
+    <string name="qr_label_transaction_amount">Transaction Amount:</string>
+    <string name="qr_placeholder_scanner_view">QR Scanner View Placeholder</string>
+    <string name="qr_instructions">Point camera at beneficiary QR code.</string>
+    <string name="permission_camera_rationale">Camera permission is required to scan QR codes.</string>
+    <string name="action_grant_permission">Grant Permission</string>
+    <string name="permission_camera_denied">Camera permission was denied. Please grant it in app settings to scan QR codes.</string>
+
 </resources>

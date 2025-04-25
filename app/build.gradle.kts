@@ -1,21 +1,24 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.compose) // Ensure this exists if using Compose plugin alias
 }
 
 android {
-    namespace = "com.example.merchantapp"
-    compileSdk = 35
+    namespace = "com.example.merchantapp" // Verify namespace
+    compileSdk = 35 // Or your target SDK
 
     defaultConfig {
-        applicationId = "com.example.merchantapp"
+        applicationId = "com.example.merchantapp" // Verify app ID
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 35 // Or your target SDK
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true // Often needed for vector drawables
+        }
     }
 
     buildTypes {
@@ -37,39 +40,63 @@ android {
     buildFeatures {
         compose = true
     }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14" // Or version compatible with your Kotlin/Compose
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}" // Common exclusion for compose
+        }
+    }
 }
 
 dependencies {
 
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx) // Already present, good for lifecycle
+    implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
-    // Add this line if it's missing // This line was added previously to fix icon issue
-    implementation("androidx.compose.material:material-icons-extended:1.6.6")
-    implementation("androidx.appcompat:appcompat:1.6.1")
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    implementation("androidx.navigation:navigation-compose:2.7.7") // Or the latest version
+
+    // Icons (Core and Extended)
+    implementation("androidx.compose.material:material-icons-core:1.6.7") // Use latest stable
+    implementation("androidx.compose.material:material-icons-extended:1.6.7") // Use latest stable
+
+    // Navigation
+    implementation("androidx.navigation:navigation-compose:2.7.7") // Use latest stable
+
+    // Networking (Retrofit, Gson, OkHttp)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0") // Or latest stable
+
+    // ViewModel and Lifecycle Compose Helpers
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0") // Use latest stable
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0") // Use latest stable
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3") // Use latest stable
+
+    // CameraX
+    val cameraxVersion = "1.3.3" // Use latest stable
+    implementation("androidx.camera:camera-core:${cameraxVersion}")
+    //noinspection GradleDependency
+    implementation("androidx.camera:camera-camera2:${cameraxVersion}")
+    implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
+    implementation("androidx.camera:camera-view:${cameraxVersion}")
+
+    // Accompanist Permissions
+    val accompanistVersion = "0.34.0" // Use latest stable
+    implementation("com.google.accompanist:accompanist-permissions:${accompanistVersion}")
 
 
-    // --- ADDED: Networking Libraries ---
-    implementation("com.squareup.retrofit2:retrofit:2.9.0") // Retrofit core
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0") // Gson converter for JSON
-    // ADDED: OkHttp Logging Interceptor (needed for logging network calls)
-    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0") // Use a recent stable version
+    // AppCompat (Often needed for themes, compatibility, delegates)
+    implementation("androidx.appcompat:appcompat:1.6.1") // Use latest stable
 
-    // --- ADDED: ViewModel and Lifecycle for Compose ---
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0") // ViewModel specifically for Compose
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0") // CollectAsStateWithLifecycle helper etc.
-
-    // --- ADDED: Coroutines for background tasks (used by ViewModelScope) ---
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-
-
-    // --- Test Dependencies ---
+    // Test Dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

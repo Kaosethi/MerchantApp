@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/merchantapp/ui/main/MainScreen.kt
 package com.example.merchantapp.ui.main
 
 import android.annotation.SuppressLint
@@ -11,20 +10,21 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.merchantapp.R
 import com.example.merchantapp.navigation.BottomNavScreens
 import com.example.merchantapp.ui.analytics.AnalyticsDashboardScreen
 import com.example.merchantapp.ui.amount.AmountEntryScreen
 import com.example.merchantapp.ui.summary.TransactionSummaryScreen
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 
-
-data class BottomNavItem(
+data class BottomNavItemData(
     val label: String,
     val icon: ImageVector,
     val route: String
@@ -33,13 +33,15 @@ data class BottomNavItem(
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun MainScreen(
-    onLogoutRequest: () -> Unit // ADDED: Accept logout request callback
+    onLogoutRequest: () -> Unit,
+    onNavigateToQrScan: (String) -> Unit
 ) {
     val bottomNavController = rememberNavController()
+
     val bottomNavItems = listOf(
-        BottomNavItem("Home", Icons.Filled.Home, BottomNavScreens.AMOUNT_ENTRY),
-        BottomNavItem("Summary", Icons.AutoMirrored.Filled.ListAlt, BottomNavScreens.SUMMARY),
-        BottomNavItem("Analytics", Icons.Filled.Analytics, BottomNavScreens.ANALYTICS)
+        BottomNavItemData(stringResource(R.string.bottom_nav_home), Icons.Filled.Home, BottomNavScreens.AMOUNT_ENTRY),
+        BottomNavItemData(stringResource(R.string.bottom_nav_summary), Icons.AutoMirrored.Filled.ListAlt, BottomNavScreens.SUMMARY),
+        BottomNavItemData(stringResource(R.string.bottom_nav_analytics), Icons.Filled.Analytics, BottomNavScreens.ANALYTICS)
     )
 
     Scaffold(
@@ -56,14 +58,16 @@ fun MainScreen(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavScreens.AMOUNT_ENTRY) {
-                // MODIFIED: Pass the onLogoutRequest callback down
-                AmountEntryScreen(onLogoutRequest = onLogoutRequest)
+                AmountEntryScreen(
+                    onLogoutRequest = onLogoutRequest,
+                    onNavigateToQrScan = onNavigateToQrScan // Pass callback down
+                )
             }
             composable(BottomNavScreens.SUMMARY) {
-                TransactionSummaryScreen() // Add onLogoutRequest here too if needed later
+                TransactionSummaryScreen()
             }
             composable(BottomNavScreens.ANALYTICS) {
-                AnalyticsDashboardScreen() // Add onLogoutRequest here too if needed later
+                AnalyticsDashboardScreen()
             }
         }
     }
@@ -73,7 +77,7 @@ fun MainScreen(
 @Composable
 fun BottomNavigationBar(
     navController: NavHostController,
-    items: List<BottomNavItem>,
+    items: List<BottomNavItemData>,
     modifier: Modifier = Modifier
 ) {
     NavigationBar(modifier = modifier) {
@@ -100,12 +104,10 @@ fun BottomNavigationBar(
     }
 }
 
-
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun MainScreenPreview() {
     MerchantAppTheme {
-        // MODIFIED: Provide dummy lambda for preview
-        MainScreen(onLogoutRequest = {})
+        MainScreen(onLogoutRequest = {}, onNavigateToQrScan = {})
     }
 }
