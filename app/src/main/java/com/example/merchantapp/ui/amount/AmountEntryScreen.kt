@@ -1,18 +1,20 @@
 // File: app/src/main/java/com/example/merchantapp/ui/amount/AmountEntryScreen.kt
 package com.example.merchantapp.ui.amount
 
+// --- Imports ---
 import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.foundation.layout.*
-// REMOVED: text package imports (KeyboardOptions, KeyboardActions)
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace // Import Backspace
+import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue // Keep explicit imports
+// Removed: import androidx.compose.runtime.setValue (not directly used)
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-// REMOVED: platform imports (LocalFocusManager, LocalSoftwareKeyboardController)
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -24,6 +26,7 @@ import com.example.merchantapp.R
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.viewmodel.AmountEntryUiState
 import com.example.merchantapp.viewmodel.AmountEntryViewModel
+// --- End Imports ---
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -31,17 +34,15 @@ import com.example.merchantapp.viewmodel.AmountEntryViewModel
 fun AmountEntryScreen(
     viewModel: AmountEntryViewModel = viewModel(),
     onLogoutRequest: () -> Unit,
-    onNavigateToQrScan: (String) -> Unit // Takes the raw amount string
+    onNavigateToQrScan: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Function to trigger navigation using raw amount from viewmodel state
     val proceedToScan: () -> Unit = {
         if (uiState.isAmountValid) {
-            val rawAmount = viewModel.getRawAmountValue() // Get raw value
+            val rawAmount = viewModel.getRawAmountValue()
             Log.d("AmountEntryScreen", "Proceeding to QR scan with amount: $rawAmount")
             onNavigateToQrScan(rawAmount)
-            // viewModel.clearAmount() // Optional clear
         } else {
             Log.w("AmountEntryScreen", "Proceed button clicked but amount is invalid: ${uiState.amount}")
         }
@@ -59,20 +60,19 @@ fun AmountEntryScreen(
             )
         }
     ) { innerPadding ->
-        AmountNumpadContent( // Renamed content composable
+        AmountNumpadContent(
             modifier = Modifier.padding(innerPadding),
             uiState = uiState,
-            onDigitClick = viewModel::onDigitClick,
-            onDecimalClick = viewModel::onDecimalClick,
-            onBackspaceClick = viewModel::onBackspaceClick,
+            onDigitClick = { digit -> viewModel.onDigitClick(digit) }, // Use Lambda
+            onDecimalClick = { viewModel.onDecimalClick() }, // Use Lambda
+            onBackspaceClick = { viewModel.onBackspaceClick() }, // Use Lambda
             onProceedClick = proceedToScan
         )
     }
 }
 
-// --- MODIFIED Stateless Composable ---
 @Composable
-fun AmountNumpadContent( // Renamed
+fun AmountNumpadContent(
     modifier: Modifier = Modifier,
     uiState: AmountEntryUiState,
     onDigitClick: (Char) -> Unit,
@@ -80,38 +80,33 @@ fun AmountNumpadContent( // Renamed
     onBackspaceClick: () -> Unit,
     onProceedClick: () -> Unit
 ) {
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(bottom = 16.dp, start = 16.dp, end = 16.dp), // Adjust padding
+            .padding(bottom = 16.dp, start = 16.dp, end = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- Amount Display Area ---
-        Spacer(Modifier.weight(1f)) // Pushes amount display down a bit
+        Spacer(Modifier.weight(1f))
         Text(
-            text = uiState.displayAmount, // Display the formatted amount
-            style = MaterialTheme.typography.displayLarge, // Make it large
+            text = uiState.displayAmount, // Use displayAmount from state
+            style = MaterialTheme.typography.displayLarge, // Reverted to displayLarge
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 24.dp)
         )
-        Spacer(Modifier.weight(1f)) // Pushes numpad down
+        Spacer(Modifier.weight(1f))
 
-        // --- Numpad ---
         AmountNumpad(
             onDigitClick = onDigitClick,
             onDecimalClick = onDecimalClick,
             onBackspaceClick = onBackspaceClick,
-            // Enable/disable based on state
             isDecimalEnabled = !uiState.amount.contains('.'),
             isBackspaceEnabled = uiState.amount.isNotEmpty()
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Proceed Button ---
         Button(
             onClick = onProceedClick,
             enabled = uiState.isAmountValid,
@@ -122,7 +117,6 @@ fun AmountNumpadContent( // Renamed
     }
 }
 
-// --- NEW: Numpad Composable ---
 @Composable
 fun AmountNumpad(
     modifier: Modifier = Modifier,
@@ -135,9 +129,8 @@ fun AmountNumpad(
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp) // Space between rows
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Rows 1-3 (Digits 1-9)
         listOf(
             listOf('1', '2', '3'),
             listOf('4', '5', '6'),
@@ -148,23 +141,20 @@ fun AmountNumpad(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
                 rowDigits.forEach { digit ->
-                    NumpadButton(text = digit.toString()) { onDigitClick(digit) }
+                    NumpadButton(text = digit.toString(), onClick = { onDigitClick(digit) })
                 }
             }
         }
-        // Row 4 (Decimal, 0, Backspace)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Use text for decimal point button
             NumpadButton(text = ".", enabled = isDecimalEnabled, onClick = onDecimalClick)
-            NumpadButton(text = "0") { onDigitClick('0') }
-            // Use Icon for backspace button
+            NumpadButton(text = "0", onClick = { onDigitClick('0') })
             NumpadButton(
                 icon = Icons.AutoMirrored.Filled.Backspace,
-                contentDescription = stringResource(R.string.pin_entry_backspace), // Reuse string
+                contentDescription = stringResource(R.string.pin_entry_backspace), // Check strings.xml
                 enabled = isBackspaceEnabled,
                 onClick = onBackspaceClick
             )
@@ -172,9 +162,8 @@ fun AmountNumpad(
     }
 }
 
-// --- NEW: Reusable Numpad Button ---
 @Composable
-fun RowScope.NumpadButton( // Use RowScope for weighting
+fun RowScope.NumpadButton(
     modifier: Modifier = Modifier,
     text: String? = null,
     icon: ImageVector? = null,
@@ -182,41 +171,35 @@ fun RowScope.NumpadButton( // Use RowScope for weighting
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    // Use TextButton for a flatter look, or OutlinedButton/Button
     TextButton(
         onClick = onClick,
         enabled = enabled,
-        shape = MaterialTheme.shapes.medium, // Or CircleShape
+        shape = MaterialTheme.shapes.medium,
         modifier = modifier
-            .weight(1f) // Equal weight for buttons in a row
-            .aspectRatio(1.8f), // Adjust aspect ratio for button shape
+            .weight(1f)
+            .aspectRatio(1.8f),
         contentPadding = PaddingValues(0.dp)
-        // Add colors or elevation if desired
     ) {
         if (text != null) {
-            Text(text = text, fontSize = 22.sp) // Adjust font size as needed
+            Text(text = text, fontSize = 22.sp)
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(24.dp) // Adjust icon size
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
-
 // --- Previews ---
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
-fun AmountNumpadScreenPreview() { // Renamed Preview
+fun AmountNumpadScreenPreview() {
     MerchantAppTheme {
         AmountNumpadContent(
             uiState = AmountEntryUiState(amount = "123.4", displayAmount = "$123.40", isAmountValid = true),
-            onDigitClick = {},
-            onDecimalClick = {},
-            onBackspaceClick = {},
-            onProceedClick = {}
+            onDigitClick = {}, onDecimalClick = {}, onBackspaceClick = {}, onProceedClick = {}
         )
     }
 }
@@ -227,11 +210,8 @@ fun AmountNumpadPreview() {
     MerchantAppTheme {
         Surface {
             AmountNumpad(
-                onDigitClick = {},
-                onDecimalClick = {},
-                onBackspaceClick = {},
-                isDecimalEnabled = false, // Example state
-                isBackspaceEnabled = true // Example state
+                onDigitClick = {}, onDecimalClick = {}, onBackspaceClick = {},
+                isDecimalEnabled = false, isBackspaceEnabled = true
             )
         }
     }

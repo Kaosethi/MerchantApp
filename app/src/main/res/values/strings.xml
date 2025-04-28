@@ -53,6 +53,7 @@
     <string name="confirm_details_title">Confirm Details</string>
     <string name="confirm_label_account_holder">Account Holder</string>
     <string name="confirm_label_name">Name</string>
+    <string name="pin_entry_backspace">Backspace</string>
     <string name="confirm_label_account_id">Account ID</string>
     <string name="confirm_label_amount_to_charge">Amount to Charge</string>
     <string name="confirm_label_category">Category</string>
