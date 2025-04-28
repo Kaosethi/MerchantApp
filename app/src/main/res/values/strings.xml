@@ -1,3 +1,4 @@
+<!-- File: app/src/main/res/values/strings.xml -->
 <resources>
     <string name="app_name">Merchant App</string>
     <string name="action_logout">Logout</string>
@@ -7,7 +8,7 @@
 
     <!-- Registration Screen Strings -->
     <string name="register_title">Merchant Registration</string>
-    <string name="action_back">Back</string>
+    <string name="action_back">Back</string> <!-- Keep this one -->
     <string name="register_instructions">Enter your store details to apply for registration. Your application will be reviewed by an administrator.</string>
     <string name="label_store_name">Store Name</string>
     <string name="placeholder_store_name">e.g., Main Street Groceries</string>
@@ -16,7 +17,7 @@
     <string name="label_email">Contact Email</string>
     <string name="placeholder_email">e.g., contact@store.com</string>
     <string name="label_phone">Contact Phone</string>
-    <string name="placeholder_phone">e.g., (555) 123-4567</string>
+    <string name="placeholder_phone">e.g., (555) 123–4567</string>
     <string name="label_address">Store Address</string>
     <string name="placeholder_address">e.g., 123 Main St, Anytown</string>
     <string name="label_password">Password</string>
@@ -47,5 +48,19 @@
     <string name="permission_camera_rationale">Camera permission is required to scan QR codes.</string>
     <string name="action_grant_permission">Grant Permission</string>
     <string name="permission_camera_denied">Camera permission was denied. Please grant it in app settings to scan QR codes.</string>
+
+    <!-- Transaction Confirmation Screen -->
+    <string name="confirm_details_title">Confirm Details</string>
+    <string name="confirm_label_account_holder">Account Holder</string>
+    <string name="confirm_label_name">Name</string>
+    <string name="confirm_label_account_id">Account ID</string>
+    <string name="confirm_label_amount_to_charge">Amount to Charge</string>
+    <string name="confirm_label_category">Category</string>
+    <!-- MODIFIED: Changed placeholder text slightly for clarity -->
+    <string name="confirm_placeholder_category">Select transaction category</string>
+    <!-- REMOVED: Merchant PIN field strings as they are no longer used on this screen -->
+    <!-- <string name="confirm_label_pin">Merchant PIN</string> -->
+    <!-- <string name="confirm_placeholder_pin">Enter your 4-digit PIN</string> -->
+    <string name="confirm_button_confirm">Confirm &amp; Process</string> <!-- Use & for & -->
 
 </resources>

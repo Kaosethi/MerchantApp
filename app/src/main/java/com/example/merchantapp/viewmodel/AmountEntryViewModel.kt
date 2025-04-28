@@ -1,125 +1,131 @@
+// File: app/src/main/java/com/example/merchantapp/viewmodel/AmountEntryViewModel.kt
 package com.example.merchantapp.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import java.text.NumberFormat
-import java.util.Locale
+import java.text.DecimalFormat
 
+/**
+ * UI state for the Amount Entry screen.
+ */
 data class AmountEntryUiState(
-    val amountString: String = "", // Holds the raw input string
-    val inputError: String? = null
+    val amount: String = "", // Raw input string, e.g., "123.45"
+    val displayAmount: String = "$0.00", // Formatted string for display
+    val isAmountValid: Boolean = false // Derived state: is the amount valid (> 0)?
 )
 
+/**
+ * ViewModel for the Amount Entry screen using Numpad.
+ */
 class AmountEntryViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(AmountEntryUiState())
     val uiState: StateFlow<AmountEntryUiState> = _uiState.asStateFlow()
 
-    private val maxDigitsBeforeDecimal = 7
-    private val maxDigitsAfterDecimal = 2
-    private val maxTotalLength = maxDigitsBeforeDecimal + maxDigitsAfterDecimal + 1
+    // Define max length if needed, e.g., before decimal point
+    private val maxIntegerPartLength = 7 // Example: allow up to 9,999,999
 
-    fun onDigitPress(digit: Char) {
-        _uiState.update { currentState ->
-            val currentInput = currentState.amountString
-            var nextInput = currentInput
+    // Function called when a digit (0-9) is pressed
+    fun onDigitClick(digit: Char) {
+        val currentAmount = _uiState.value.amount
+        val decimalPointIndex = currentAmount.indexOf('.')
+        var newAmount = currentAmount
 
-            if (currentInput == "0" && digit != '0') {
-                nextInput = digit.toString()
-            } else if (currentInput.isEmpty() && digit == '0') {
-                nextInput = "0"
-            } else if (currentInput != "0") {
-                nextInput += digit
+        if (decimalPointIndex != -1) {
+            // Already has a decimal point
+            val decimalPartLength = currentAmount.length - decimalPointIndex - 1
+            if (decimalPartLength < 2) { // Only allow 2 decimal places
+                newAmount += digit
             }
-            validateInput(nextInput, currentState)
-        }
-    }
-
-    fun onDecimalPress() {
-        _uiState.update { currentState ->
-            val currentInput = currentState.amountString
-            var nextInput = currentInput
-            if (!currentInput.contains('.')) {
-                if (currentInput.isEmpty()) {
-                    nextInput = "0."
+        } else {
+            // No decimal point yet
+            if (currentAmount.length < maxIntegerPartLength) {
+                // Handle leading zero: if current is "0", replace it unless next is "."
+                if (currentAmount == "0") {
+                    newAmount = digit.toString()
                 } else {
-                    nextInput += "."
+                    newAmount += digit
                 }
             }
-            validateInput(nextInput, currentState)
+        }
+        updateState(newAmount)
+    }
+
+    // Function called when the decimal point is pressed
+    fun onDecimalClick() {
+        val currentAmount = _uiState.value.amount
+        // Add decimal only if it doesn't exist yet
+        if (!currentAmount.contains('.')) {
+            // If empty, prefix with "0"
+            val newAmount = if (currentAmount.isEmpty()) "0." else "$currentAmount."
+            updateState(newAmount)
         }
     }
 
-    fun onDeletePress() {
-        _uiState.update { currentState ->
-            if (currentState.amountString.isNotEmpty()) {
-                val nextInput = currentState.amountString.dropLast(1)
-                AmountEntryUiState(amountString = nextInput, inputError = null)
-            } else {
-                currentState
-            }
+    // Function called when backspace is pressed
+    fun onBackspaceClick() {
+        val currentAmount = _uiState.value.amount
+        if (currentAmount.isNotEmpty()) {
+            val newAmount = currentAmount.dropLast(1)
+            // If backspace leaves just "0", reset to empty for consistency? Or keep "0"? Let's keep "0".
+            // If backspace removes the ".", update normally.
+            updateState(newAmount)
         }
     }
 
-    private fun validateInput(input: String, previousState: AmountEntryUiState): AmountEntryUiState {
-        var error: String? = null
-        val validatedInput = input
-
-        if (validatedInput.length > maxTotalLength) {
-            error = "Maximum amount length reached"
-            return previousState.copy(inputError = error)
-        }
-        val parts = validatedInput.split('.')
-        if (parts[0].length > maxDigitsBeforeDecimal) {
-            error = "Amount too large"
-            return previousState.copy(inputError = error)
-        }
-        if (parts.size > 1 && parts[1].length > maxDigitsAfterDecimal) {
-            error = "Maximum $maxDigitsAfterDecimal decimal places allowed"
-            return previousState.copy(inputError = error)
-        }
-        return AmountEntryUiState(amountString = validatedInput, inputError = null)
-    }
-
-    val formattedAmount: StateFlow<String> = _uiState
-        .map { formatCurrency(it.amountString) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = formatCurrency("")
-        )
-
-    val isNextEnabled: StateFlow<Boolean> = _uiState
-        .map { (it.amountString.toDoubleOrNull() ?: 0.0) > 0.0 }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
-        )
-
-    private fun formatCurrency(amountStr: String): String {
-        return try {
-            if (amountStr.isBlank()) return "$0.00"
-            val valueToFormat = if (amountStr.endsWith('.')) amountStr + "0"
-            else if (amountStr == ".") "0.0"
-            else amountStr
-            val amountValue = valueToFormat.toDoubleOrNull() ?: 0.0
-            NumberFormat.getCurrencyInstance(Locale.US).format(amountValue)
-        } catch (e: NumberFormatException) {
-            Log.e("AmountEntryVM", "Error formatting currency: $amountStr", e)
-            "$0.00"
+    // Central function to update state and recalculate derived values
+    private fun updateState(newRawAmount: String) {
+        val amountDouble = newRawAmount.toDoubleOrNull()
+        val isValid = amountDouble != null && amountDouble > 0.0
+        val display = formatForDisplay(newRawAmount)
+        Log.d("AmountEntryViewModel", "Updating state. Raw: $newRawAmount, Display: $display, IsValid: $isValid")
+        _uiState.update {
+            it.copy(
+                amount = newRawAmount,
+                displayAmount = display,
+                isAmountValid = isValid
+            )
         }
     }
 
-    fun clearInputError() {
-        _uiState.update { it.copy(inputError = null) }
+    // Formatter for display purposes
+    private val displayFormatter = DecimalFormat("$#,##0.00")
+
+    // Format the raw amount string for display
+    private fun formatForDisplay(rawAmount: String): String {
+        // Handle empty or just "." case for display
+        if (rawAmount.isEmpty()) return "$0.00"
+        if (rawAmount == ".") return "$0." // Show intermediate state
+
+        val amountDouble = rawAmount.toDoubleOrNull() ?: 0.0 // Default to 0 if parsing fails during intermediate input
+        if (rawAmount.endsWith('.')) {
+            // If user just typed ".", show the integer part formatted + "."
+            val integerPart = rawAmount.substringBefore('.').toLongOrNull() ?: 0L
+            return DecimalFormat("$#,##0").format(integerPart) + "."
+
+        } else if (rawAmount.contains('.') && rawAmount.substringAfter('.').length == 1){
+            // If user has typed one decimal place, show it formatted
+            val integerPart = rawAmount.substringBefore('.').toLongOrNull() ?: 0L
+            val decimalPart = rawAmount.substringAfter('.')
+            return DecimalFormat("$#,##0").format(integerPart) + "." + decimalPart
+        } else {
+            // Otherwise, format fully
+            return displayFormatter.format(amountDouble)
+        }
+
+    }
+
+    fun clearAmount() {
+        Log.d("AmountEntryViewModel", "Clearing amount")
+        _uiState.update { AmountEntryUiState() } // Reset to default state
+    }
+
+    // We still need the raw amount for navigation/processing
+    fun getRawAmountValue(): String {
+        return _uiState.value.amount
     }
 }

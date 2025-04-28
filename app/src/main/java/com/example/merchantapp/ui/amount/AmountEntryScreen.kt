@@ -1,198 +1,238 @@
+// File: app/src/main/java/com/example/merchantapp/ui/amount/AmountEntryScreen.kt
 package com.example.merchantapp.ui.amount
 
+import android.annotation.SuppressLint
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
+// REMOVED: text package imports (KeyboardOptions, KeyboardActions)
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Backspace // Import Backspace
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+// REMOVED: platform imports (LocalFocusManager, LocalSoftwareKeyboardController)
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.merchantapp.R
 import com.example.merchantapp.ui.theme.MerchantAppTheme
-import com.example.merchantapp.viewmodel.AmountEntryViewModel
 import com.example.merchantapp.viewmodel.AmountEntryUiState
+import com.example.merchantapp.viewmodel.AmountEntryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun AmountEntryScreen(
-    modifier: Modifier = Modifier,
     viewModel: AmountEntryViewModel = viewModel(),
     onLogoutRequest: () -> Unit,
-    onNavigateToQrScan: (String) -> Unit
+    onNavigateToQrScan: (String) -> Unit // Takes the raw amount string
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val formattedAmount by viewModel.formattedAmount.collectAsStateWithLifecycle()
-    val isNextEnabled by viewModel.isNextEnabled.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
-    LaunchedEffect(uiState.inputError) {
-        uiState.inputError?.let { error ->
-            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-            viewModel.clearInputError()
+    // Function to trigger navigation using raw amount from viewmodel state
+    val proceedToScan: () -> Unit = {
+        if (uiState.isAmountValid) {
+            val rawAmount = viewModel.getRawAmountValue() // Get raw value
+            Log.d("AmountEntryScreen", "Proceeding to QR scan with amount: $rawAmount")
+            onNavigateToQrScan(rawAmount)
+            // viewModel.clearAmount() // Optional clear
+        } else {
+            Log.w("AmountEntryScreen", "Proceed button clicked but amount is invalid: ${uiState.amount}")
         }
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Food Market") }, // Placeholder Title
-                navigationIcon = { Spacer(Modifier.width(48.dp)) },
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(id = R.string.title_amount_entry)) },
                 actions = {
                     IconButton(onClick = onLogoutRequest) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, stringResource(R.string.action_logout))
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = stringResource(R.string.action_logout))
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                }
             )
         }
-    ) { paddingValues ->
-        Column(
-            modifier = modifier // Use modifier from caller (MainScreen)
-                .padding(paddingValues) // Apply padding from this Scaffold
-                .fillMaxSize()
-                .padding(horizontal = 16.dp), // Add consistent horizontal padding
-            horizontalAlignment = Alignment.CenterHorizontally
+    ) { innerPadding ->
+        AmountNumpadContent( // Renamed content composable
+            modifier = Modifier.padding(innerPadding),
+            uiState = uiState,
+            onDigitClick = viewModel::onDigitClick,
+            onDecimalClick = viewModel::onDecimalClick,
+            onBackspaceClick = viewModel::onBackspaceClick,
+            onProceedClick = proceedToScan
+        )
+    }
+}
+
+// --- MODIFIED Stateless Composable ---
+@Composable
+fun AmountNumpadContent( // Renamed
+    modifier: Modifier = Modifier,
+    uiState: AmountEntryUiState,
+    onDigitClick: (Char) -> Unit,
+    onDecimalClick: () -> Unit,
+    onBackspaceClick: () -> Unit,
+    onProceedClick: () -> Unit
+) {
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(bottom = 16.dp, start = 16.dp, end = 16.dp), // Adjust padding
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // --- Amount Display Area ---
+        Spacer(Modifier.weight(1f)) // Pushes amount display down a bit
+        Text(
+            text = uiState.displayAmount, // Display the formatted amount
+            style = MaterialTheme.typography.displayLarge, // Make it large
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp)
+        )
+        Spacer(Modifier.weight(1f)) // Pushes numpad down
+
+        // --- Numpad ---
+        AmountNumpad(
+            onDigitClick = onDigitClick,
+            onDecimalClick = onDecimalClick,
+            onBackspaceClick = onBackspaceClick,
+            // Enable/disable based on state
+            isDecimalEnabled = !uiState.amount.contains('.'),
+            isBackspaceEnabled = uiState.amount.isNotEmpty()
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // --- Proceed Button ---
+        Button(
+            onClick = onProceedClick,
+            enabled = uiState.isAmountValid,
+            modifier = Modifier.fillMaxWidth().height(52.dp)
         ) {
-            Text(
-                text = "Transaction Amount", // Consider using stringResource
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = formattedAmount,
-                fontSize = 52.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Keypad(
-                onDigitClick = viewModel::onDigitPress,
-                onDecimalClick = viewModel::onDecimalPress,
-                onDeleteClick = viewModel::onDeletePress,
-                modifier = Modifier
-                    .weight(1f) // Keypad takes available space
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
-            )
-
-            Button(
-                onClick = {
-                    val rawAmount = uiState.amountString // Use correct field name
-                    Log.d("AmountEntryScreen", "Next Clicked. Raw Amount: $rawAmount")
-                    onNavigateToQrScan(rawAmount) // Call the navigation callback
-                },
-                enabled = isNextEnabled,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp) // Padding from screen bottom
-                    .height(52.dp)
-            ) {
-                Text("Next", fontSize = 16.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next")
-            }
+            Text("Proceed to Scan QR")
         }
     }
 }
 
+// --- NEW: Numpad Composable ---
 @Composable
-fun Keypad(
+fun AmountNumpad(
+    modifier: Modifier = Modifier,
     onDigitClick: (Char) -> Unit,
     onDecimalClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onBackspaceClick: () -> Unit,
+    isDecimalEnabled: Boolean,
+    isBackspaceEnabled: Boolean
 ) {
     Column(
-        modifier = modifier.fillMaxHeight(),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly // Distribute rows evenly
+        verticalArrangement = Arrangement.spacedBy(8.dp) // Space between rows
     ) {
-        val keypadLayout = listOf(
+        // Rows 1-3 (Digits 1-9)
+        listOf(
             listOf('1', '2', '3'),
             listOf('4', '5', '6'),
-            listOf('7', '8', '9'),
-            listOf('.', '0', 'D') // 'D' for Delete
-        )
-
-        keypadLayout.forEach { row ->
+            listOf('7', '8', '9')
+        ).forEach { rowDigits ->
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f), // Each row takes equal vertical space
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
             ) {
-                row.forEach { key ->
-                    KeypadButton(
-                        key = key,
-                        onClick = {
-                            when (key) {
-                                '.' -> onDecimalClick()
-                                'D' -> onDeleteClick()
-                                else -> onDigitClick(key)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxHeight() // Button fills row height
-                            .weight(1f)      // Buttons share horizontal space
-                    )
+                rowDigits.forEach { digit ->
+                    NumpadButton(text = digit.toString()) { onDigitClick(digit) }
                 }
             }
         }
-    }
-}
-
-@Composable
-fun KeypadButton(
-    key: Char,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    FilledTonalButton( // Or Button, OutlinedButton as desired
-        onClick = onClick,
-        modifier = modifier.padding(4.dp),
-        shape = MaterialTheme.shapes.medium,
-        contentPadding = PaddingValues(vertical = 8.dp)
-    ) {
-        if (key == 'D') {
-            Icon(
-                Icons.AutoMirrored.Filled.Backspace,
-                contentDescription = "Delete",
-                modifier = Modifier.size(30.dp)
-            )
-        } else {
-            Text(
-                text = key.toString(),
-                fontSize = 28.sp
+        // Row 4 (Decimal, 0, Backspace)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Use text for decimal point button
+            NumpadButton(text = ".", enabled = isDecimalEnabled, onClick = onDecimalClick)
+            NumpadButton(text = "0") { onDigitClick('0') }
+            // Use Icon for backspace button
+            NumpadButton(
+                icon = Icons.AutoMirrored.Filled.Backspace,
+                contentDescription = stringResource(R.string.pin_entry_backspace), // Reuse string
+                enabled = isBackspaceEnabled,
+                onClick = onBackspaceClick
             )
         }
     }
 }
 
+// --- NEW: Reusable Numpad Button ---
+@Composable
+fun RowScope.NumpadButton( // Use RowScope for weighting
+    modifier: Modifier = Modifier,
+    text: String? = null,
+    icon: ImageVector? = null,
+    contentDescription: String? = null,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    // Use TextButton for a flatter look, or OutlinedButton/Button
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        shape = MaterialTheme.shapes.medium, // Or CircleShape
+        modifier = modifier
+            .weight(1f) // Equal weight for buttons in a row
+            .aspectRatio(1.8f), // Adjust aspect ratio for button shape
+        contentPadding = PaddingValues(0.dp)
+        // Add colors or elevation if desired
+    ) {
+        if (text != null) {
+            Text(text = text, fontSize = 22.sp) // Adjust font size as needed
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(24.dp) // Adjust icon size
+            )
+        }
+    }
+}
+
+
+// --- Previews ---
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
-fun AmountEntryScreenPreview() {
+fun AmountNumpadScreenPreview() { // Renamed Preview
     MerchantAppTheme {
-        AmountEntryScreen(onLogoutRequest = {}, onNavigateToQrScan = {})
+        AmountNumpadContent(
+            uiState = AmountEntryUiState(amount = "123.4", displayAmount = "$123.40", isAmountValid = true),
+            onDigitClick = {},
+            onDecimalClick = {},
+            onBackspaceClick = {},
+            onProceedClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AmountNumpadPreview() {
+    MerchantAppTheme {
+        Surface {
+            AmountNumpad(
+                onDigitClick = {},
+                onDecimalClick = {},
+                onBackspaceClick = {},
+                isDecimalEnabled = false, // Example state
+                isBackspaceEnabled = true // Example state
+            )
+        }
     }
 }
