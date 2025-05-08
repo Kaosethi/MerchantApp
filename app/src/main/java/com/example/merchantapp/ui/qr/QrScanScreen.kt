@@ -1,8 +1,18 @@
-// File: app/src/main/java/com/example/merchantapp/ui/qr/QrScanScreen.kt
+// QrScanScreen.kt
 package com.example.merchantapp.ui.qr
 
-import android.annotation.SuppressLint
-// --- Minimal Necessary Imports ---
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.util.Log
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+// ADDED: Import alias for CameraX Preview
+import androidx.camera.core.Preview as CameraXPreview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -10,117 +20,257 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+// MODIFIED: Import for LocalLifecycleOwner from lifecycle-runtime-compose
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
+// Import for @Preview annotation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.merchantapp.R
 import com.example.merchantapp.ui.theme.MerchantAppTheme
+import com.example.merchantapp.util.QrCodeAnalyzer
+import com.example.merchantapp.viewmodel.QrScanViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.PermissionState // Explicit import for PermissionState type
+import com.google.accompanist.permissions.PermissionStatus
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import java.text.NumberFormat
 import java.util.Locale
-// --- End Minimal Imports ---
+import java.util.concurrent.Executors
 
-@OptIn(ExperimentalMaterial3Api::class)
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun QrScanScreen(
-    amount: String,
+    viewModel: QrScanViewModel = viewModel(),
     onNavigateBack: () -> Unit,
-    onSimulatedScan: (amount: String, token: String) -> Unit
+    onQrScanSuccessNavigation: (amount: String, scannedToken: String) -> Unit
 ) {
-    val hardcodedTestToken = "TEST-TOKEN-12345"
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    // Uses the updated import for LocalLifecycleOwner
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
-    // FIX 1: Ensure catch block returns a value for remember
-    val formattedAmount = remember(amount) {
+    LaunchedEffect(uiState.isQrCodeDetected, uiState.scannedQrCodeValue) {
+        if (uiState.isQrCodeDetected && uiState.scannedQrCodeValue != null) {
+            Log.d("QrScanScreen", "Navigation effect triggered. Amount: ${uiState.amount}, Token: ${uiState.scannedQrCodeValue}")
+            onQrScanSuccessNavigation(uiState.amount, uiState.scannedQrCodeValue!!)
+            viewModel.onNavigationHandled()
+        }
+    }
+
+    val formattedAmount = remember(uiState.amount) {
         try {
-            val amountValue = amount.toDoubleOrNull() ?: 0.0
-            NumberFormat.getCurrencyInstance(Locale("en", "US")).format(amountValue)
+            val amountValue = uiState.amount.toDoubleOrNull() ?: 0.0
+            NumberFormat.getCurrencyInstance(Locale("th", "TH")).format(amountValue)
         } catch (e: Exception) {
-            "Error" // Explicitly return "Error" in catch block
+            Log.e("QrScanScreen", "Failed to format amount: ${uiState.amount}", e)
+            "Error"
         }
     }
 
     Scaffold(
-        // FIX 2: Ensure TopAppBar definition is correct
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.title_qr_scan)) },
+                title = { Text("Scan Beneficiary QR") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                }
             )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxSize()
         ) {
-            // Top Section (Amount)
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = stringResource(R.string.qr_label_transaction_amount),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = formattedAmount,
-                    style = MaterialTheme.typography.displaySmall
-                )
+            Text(
+                text = "Amount: $formattedAmount",
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+            )
+
+            when (cameraPermissionState.status) {
+                PermissionStatus.Granted -> {
+                    Log.d("QrScanScreen", "Camera permission granted.")
+                    CameraPreview(
+                        context = context,
+                        lifecycleOwner = lifecycleOwner,
+                        onQrCodeScanned = { qrValue -> viewModel.onQrCodeScanned(qrValue) },
+                        onError = { errorMsg -> viewModel.setErrorMessage(errorMsg) }
+                    )
+                }
+                is PermissionStatus.Denied -> {
+                    RequestCameraPermission(
+                        permissionState = cameraPermissionState,
+                        navigateToSettingsScreen = { context.openAppSettings() }
+                    )
+                }
             }
 
-            // Middle Section (Placeholder and Instructions)
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            uiState.errorMessage?.let { message ->
+                // Display error below camera/permission view
                 Text(
-                    text = stringResource(R.string.qr_placeholder_scanner_view),
-                    style = MaterialTheme.typography.bodyLarge,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(16.dp)
+                    text = "Error: $message",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.qr_instructions),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            // Bottom Section (Simulation Button)
-            Button(
-                onClick = {
-                    onSimulatedScan(amount, hardcodedTestToken)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
-                Text("Simulate Scan Success") // TODO: Add to strings.xml
             }
         }
     }
 }
 
-
-@Preview(showBackground = true, device = "id:pixel_5")
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
-private fun QrScanScreenPreview() {
-    MerchantAppTheme {
-        QrScanScreen(
-            amount = "55.00",
-            onNavigateBack = {},
-            onSimulatedScan = { _, _ -> }
+fun RequestCameraPermission(
+    permissionState: PermissionState, // Use explicit import type
+    navigateToSettingsScreen: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        val textToShow = if (permissionState.status.shouldShowRationale) {
+            "Scanning QR codes requires camera access."
+        } else {
+            "Camera permission required for this feature. Please grant the permission in App Settings."
+        }
+
+        Text(text = textToShow, textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = {
+            if (permissionState.status.shouldShowRationale) {
+                permissionState.launchPermissionRequest()
+            } else {
+                navigateToSettingsScreen()
+            }
+        }) {
+            Text(if (permissionState.status.shouldShowRationale) "Request Permission" else "Open Settings")
+        }
+    }
+}
+
+@Composable
+fun CameraPreview(
+    context: Context,
+    lifecycleOwner: LifecycleOwner,
+    onQrCodeScanned: (String?) -> Unit,
+    onError: (String) -> Unit
+) {
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    // MODIFIED: Use the alias CameraXPreview for the state variable type
+    var previewUseCase by remember { mutableStateOf<CameraXPreview?>(null) }
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx).apply {
+                    this.scaleType = PreviewView.ScaleType.FILL_CENTER
+                }
+                cameraProviderFuture.addListener({ // Use addListener for safety
+                    val cameraProvider = cameraProviderFuture.get()
+
+                    // MODIFIED: Use the alias CameraXPreview for the builder
+                    previewUseCase = CameraXPreview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+
+                    val imageAnalyzer = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also {
+                            it.setAnalyzer(cameraExecutor, QrCodeAnalyzer { qrResult ->
+                                onQrCodeScanned(qrResult)
+                            })
+                        }
+
+                    val cameraSelector = CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                        .build()
+
+                    try {
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            cameraSelector,
+                            previewUseCase, // Pass the correctly typed variable
+                            imageAnalyzer
+                        )
+                        Log.d("CameraPreview", "CameraX bound to lifecycle.")
+                    } catch (e: Exception) {
+                        Log.e("CameraPreview", "CameraX binding failed", e)
+                        onError("Failed to initialize camera: ${e.localizedMessage}")
+                    }
+                }, ContextCompat.getMainExecutor(ctx)) // Run listener on main thread
+
+                previewView
+            },
+            modifier = Modifier.fillMaxSize()
         )
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            Log.d("CameraPreview", "Disposing CameraPreview, shutting down executor.")
+            cameraExecutor.shutdown()
+            // Optionally unbind here too, though lifecycle should handle it
+            // try { cameraProviderFuture.get().unbindAll() } catch (e: Exception) { Log.e("CameraPreview", "Error unbinding camera", e) }
+        }
+    }
+}
+
+// Helper extension function - remains the same
+fun Context.openAppSettings() {
+    Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", packageName, null)
+    ).also(::startActivity)
+}
+
+// --- Previews ---
+// These use the Compose UI Preview annotation
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true)
+@Composable
+fun QrScanScreenPreview() {
+    MerchantAppTheme {
+        Scaffold(topBar = {TopAppBar(title = {Text("Scan Beneficiary QR")})}) { padding ->
+            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center){
+                Text("Camera Preview Area (Requires Device/Emulator)")
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RequestPermissionPreview() {
+    MerchantAppTheme {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = "Camera permission required...", textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = {}) { Text("Request Permission") }
+        }
     }
 }

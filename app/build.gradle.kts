@@ -66,39 +66,42 @@ dependencies {
     implementation(libs.androidx.material3)
 
     // Icons (Core and Extended)
-    implementation("androidx.compose.material:material-icons-core:1.6.7")
-    implementation("androidx.compose.material:material-icons-extended:1.6.7")
+    implementation("androidx.compose.material:material-icons-core:1.6.7") // Use latest stable
+    implementation("androidx.compose.material:material-icons-extended:1.6.7") // Use latest stable
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.7.7") // Use latest stable
 
     // Networking (Retrofit, Gson, OkHttp)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0") // Or latest stable
 
     // ViewModel and Lifecycle Compose Helpers
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0") // Use latest stable
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0") // Use latest stable
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3") // Use latest stable
 
     // CameraX
-    val cameraxVersion = "1.3.3"
+    val cameraxVersion = "1.3.3" // Use latest stable
     implementation("androidx.camera:camera-core:${cameraxVersion}")
     implementation("androidx.camera:camera-camera2:${cameraxVersion}")
     implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
     implementation("androidx.camera:camera-view:${cameraxVersion}")
 
     // Accompanist Permissions
-    val accompanistVersion = "0.34.0"
+    val accompanistVersion = "0.34.0" // Use latest stable
     implementation("com.google.accompanist:accompanist-permissions:${accompanistVersion}")
 
     // AppCompat (Often needed for themes, compatibility, delegates)
-    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.appcompat:appcompat:1.6.1") // Use latest stable
 
-    // ADDED: Core library desugaring dependency
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.2.0") // Use latest stable version
+
+    // Core library desugaring dependency
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4") // Check for latest stable version
 
     // Test Dependencies
