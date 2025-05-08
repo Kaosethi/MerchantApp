@@ -9,8 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
-// ADDED: Import alias for CameraX Preview
-import androidx.camera.core.Preview as CameraXPreview
+import androidx.camera.core.Preview as CameraXPreview // Alias remains
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
@@ -21,10 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-// MODIFIED: Import for LocalLifecycleOwner from lifecycle-runtime-compose
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
-// Import for @Preview annotation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -36,7 +33,7 @@ import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.util.QrCodeAnalyzer
 import com.example.merchantapp.viewmodel.QrScanViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.PermissionState // Explicit import for PermissionState type
+import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
@@ -48,22 +45,21 @@ import java.util.concurrent.Executors
 @Composable
 fun QrScanScreen(
     viewModel: QrScanViewModel = viewModel(),
-    onNavigateBack: () -> Unit,
-    onQrScanSuccessNavigation: (amount: String, scannedToken: String) -> Unit
+    onNavigateBack: () -> Unit
+    // REMOVED onQrScanSuccessNavigation parameter - OK
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    // Uses the updated import for LocalLifecycleOwner
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
-    LaunchedEffect(uiState.isQrCodeDetected, uiState.scannedQrCodeValue) {
-        if (uiState.isQrCodeDetected && uiState.scannedQrCodeValue != null) {
-            Log.d("QrScanScreen", "Navigation effect triggered. Amount: ${uiState.amount}, Token: ${uiState.scannedQrCodeValue}")
-            onQrScanSuccessNavigation(uiState.amount, uiState.scannedQrCodeValue!!)
-            viewModel.onNavigationHandled()
-        }
-    }
+    // REMOVED: LaunchedEffect for navigation, as it's handled in MainActivity observing the ViewModel
+    // LaunchedEffect(uiState.isQrCodeDetected, uiState.scannedQrCodeValue) {
+    //     if (uiState.isQrCodeDetected && uiState.scannedQrCodeValue != null) {
+    //         // Navigation logic moved to MainActivity's composable block
+    //         viewModel.onNavigationHandled()
+    //     }
+    // }
 
     val formattedAmount = remember(uiState.amount) {
         try {
@@ -118,7 +114,6 @@ fun QrScanScreen(
             }
 
             uiState.errorMessage?.let { message ->
-                // Display error below camera/permission view
                 Text(
                     text = "Error: $message",
                     color = MaterialTheme.colorScheme.error,
@@ -130,10 +125,11 @@ fun QrScanScreen(
     }
 }
 
+// --- RequestCameraPermission, CameraPreview, openAppSettings, Previews remain the same ---
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun RequestCameraPermission(
-    permissionState: PermissionState, // Use explicit import type
+    permissionState: PermissionState,
     navigateToSettingsScreen: () -> Unit
 ) {
     Column(
@@ -171,7 +167,6 @@ fun CameraPreview(
     onError: (String) -> Unit
 ) {
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    // MODIFIED: Use the alias CameraXPreview for the state variable type
     var previewUseCase by remember { mutableStateOf<CameraXPreview?>(null) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
 
@@ -181,14 +176,11 @@ fun CameraPreview(
                 val previewView = PreviewView(ctx).apply {
                     this.scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
-                cameraProviderFuture.addListener({ // Use addListener for safety
+                cameraProviderFuture.addListener({
                     val cameraProvider = cameraProviderFuture.get()
-
-                    // MODIFIED: Use the alias CameraXPreview for the builder
                     previewUseCase = CameraXPreview.Builder().build().also {
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
-
                     val imageAnalyzer = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build()
@@ -197,17 +189,15 @@ fun CameraPreview(
                                 onQrCodeScanned(qrResult)
                             })
                         }
-
                     val cameraSelector = CameraSelector.Builder()
                         .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                         .build()
-
                     try {
                         cameraProvider.unbindAll()
                         cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             cameraSelector,
-                            previewUseCase, // Pass the correctly typed variable
+                            previewUseCase,
                             imageAnalyzer
                         )
                         Log.d("CameraPreview", "CameraX bound to lifecycle.")
@@ -215,8 +205,7 @@ fun CameraPreview(
                         Log.e("CameraPreview", "CameraX binding failed", e)
                         onError("Failed to initialize camera: ${e.localizedMessage}")
                     }
-                }, ContextCompat.getMainExecutor(ctx)) // Run listener on main thread
-
+                }, ContextCompat.getMainExecutor(ctx))
                 previewView
             },
             modifier = Modifier.fillMaxSize()
@@ -227,22 +216,16 @@ fun CameraPreview(
         onDispose {
             Log.d("CameraPreview", "Disposing CameraPreview, shutting down executor.")
             cameraExecutor.shutdown()
-            // Optionally unbind here too, though lifecycle should handle it
-            // try { cameraProviderFuture.get().unbindAll() } catch (e: Exception) { Log.e("CameraPreview", "Error unbinding camera", e) }
         }
     }
 }
 
-// Helper extension function - remains the same
 fun Context.openAppSettings() {
     Intent(
         Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
         Uri.fromParts("package", packageName, null)
     ).also(::startActivity)
 }
-
-// --- Previews ---
-// These use the Compose UI Preview annotation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
