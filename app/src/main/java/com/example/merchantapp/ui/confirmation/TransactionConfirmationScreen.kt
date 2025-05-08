@@ -54,7 +54,6 @@ fun TransactionConfirmationScreen(
     beneficiaryId: String,
     beneficiaryName: String,
     onNavigateBack: () -> Unit,
-    // ADDED: Callback for navigating to PIN entry
     onConfirmAndProcess: (amount: String, beneficiaryId: String, beneficiaryName: String, category: String) -> Unit
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf("") }
@@ -68,10 +67,11 @@ fun TransactionConfirmationScreen(
     val formattedAmount = remember(amount) {
         try {
             val amountValue = amount.toDoubleOrNull() ?: 0.0
-            NumberFormat.getCurrencyInstance(Locale("en", "US")).format(amountValue)
+            // MODIFIED: Changed Locale to th_TH for Thai Baht
+            NumberFormat.getCurrencyInstance(Locale("th", "TH")).format(amountValue)
         } catch (e: Exception) {
             Log.e("ConfirmScreen", "Failed to format amount: $amount", e)
-            "Error" // Fallback for formatting error
+            "Error"
         }
     }
 
@@ -98,7 +98,6 @@ fun TransactionConfirmationScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
-            // --- Account Holder Card ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -113,11 +112,10 @@ fun TransactionConfirmationScreen(
                 }
             }
 
-            // --- Amount Card ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFC8E6C9))
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFC8E6C9)) // Consider using theme colors
             ) {
                 Column(
                     modifier = Modifier
@@ -127,11 +125,10 @@ fun TransactionConfirmationScreen(
                 ) {
                     Text(stringResource(R.string.confirm_label_amount_to_charge), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
-                    Text(formattedAmount, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF388E3C))
+                    Text(formattedAmount, style = MaterialTheme.typography.headlineSmall, color = Color(0xFF388E3C)) // Consider using theme colors
                 }
             }
 
-            // --- Category Dropdown ---
             ExposedDropdownMenuBox(
                 expanded = isDropdownExpanded,
                 onExpandedChange = {
@@ -170,11 +167,9 @@ fun TransactionConfirmationScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Confirm Button ---
             Button(
                 enabled = selectedCategory.isNotEmpty(),
                 onClick = {
-                    // MODIFIED: Call the new navigation callback
                     Log.d("ConfirmScreen", "Confirm button clicked. Category: $selectedCategory, Amount: $amount, BeneficiaryID: $beneficiaryId")
                     onConfirmAndProcess(amount, beneficiaryId, beneficiaryName, selectedCategory)
                 },
@@ -188,17 +183,16 @@ fun TransactionConfirmationScreen(
     }
 }
 
-
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 private fun TransactionConfirmationScreenPreview() {
     MerchantAppTheme {
         TransactionConfirmationScreen(
-            amount = "5.00",
+            amount = "150.00", // Example THB amount
             beneficiaryId = "BEN-123456789",
             beneficiaryName = "Preview User Name",
             onNavigateBack = {},
-            onConfirmAndProcess = { _, _, _, _ -> } // ADDED: Dummy lambda for preview
+            onConfirmAndProcess = { _, _, _, _ -> }
         )
     }
 }

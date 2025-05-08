@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.foundation.border
+import androidx.compose.foundation.border // Keep this import
 import androidx.lifecycle.SavedStateHandle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
@@ -41,7 +41,7 @@ fun PinEntryScreen(
 
     LaunchedEffect(uiState.isPinVerifiedSuccessfully) {
         if (uiState.isPinVerifiedSuccessfully) {
-            focusManager.clearFocus() // Clear focus before navigating
+            focusManager.clearFocus()
             onPinVerifiedNavigateToSuccess(
                 uiState.amount,
                 uiState.beneficiaryId,
@@ -55,9 +55,10 @@ fun PinEntryScreen(
     val formattedAmount = remember(uiState.amount) {
         try {
             val amountValue = uiState.amount.toDoubleOrNull() ?: 0.0
-            NumberFormat.getCurrencyInstance(Locale("en", "US")).format(amountValue)
+            // MODIFIED: Changed Locale to th_TH for Thai Baht
+            NumberFormat.getCurrencyInstance(Locale("th", "TH")).format(amountValue)
         } catch (e: Exception) {
-            "Error"
+            "Error" // Fallback for formatting error
         }
     }
 
@@ -85,7 +86,6 @@ fun PinEntryScreen(
             Text("Confirm Transaction", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Display transaction details (optional, but good for confirmation)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     DetailRow("Amount:", formattedAmount)
@@ -121,24 +121,13 @@ fun PinEntryScreen(
 
             if (uiState.isLocked) {
                 Text(
+                    // Consider updating this message if PinEntryViewModel's locked message is more specific
                     "PIN entry locked. Please contact support or try again later.",
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-
-            // "Verify PIN" button is removed as auto-submission is implemented
-            // If you prefer manual submission, you can add a Button here:
-            /*
-            Button(
-                onClick = { viewModel.verifyPin() },
-                enabled = !uiState.isLoading && !uiState.isLocked && uiState.pinValue.length == PinEntryViewModel.MAX_PIN_LENGTH,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
-            ) {
-                Text("Verify PIN")
-            }
-            */
         }
     }
 }
@@ -163,14 +152,12 @@ fun PinInputFields(
         mutableStateOf(TextFieldValue(pinValue, TextRange(pinValue.length)))
     }
 
-    // Update TextFieldValue when pinValue from ViewModel changes (e.g., on error reset)
     LaunchedEffect(pinValue) {
         if (textFieldValue.text != pinValue) {
             textFieldValue = TextFieldValue(pinValue, TextRange(pinValue.length))
         }
     }
 
-    // Request focus when the composable enters the composition and is enabled
     LaunchedEffect(Unit) {
         if (enabled) {
             focusRequester.requestFocus()
@@ -203,7 +190,7 @@ fun PinInputFields(
                     }
                     PinDigitBox(
                         digit = char,
-                        isFocused = index == textFieldValue.text.length && enabled // Highlight next empty box if focused
+                        isFocused = index == textFieldValue.text.length && enabled
                     )
                     if (index < pinLength - 1) {
                         Spacer(modifier = Modifier.width(8.dp))
@@ -229,14 +216,13 @@ fun PinDigitBox(digit: String, isFocused: Boolean) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = digit.ifEmpty { "" }, // Show digit or empty
+            text = digit.ifEmpty { "" },
             style = MaterialTheme.typography.headlineMedium,
-            fontSize = 24.sp, // Adjust font size as needed
+            fontSize = 24.sp,
             textAlign = TextAlign.Center
         )
     }
 }
-
 
 @Preview(showBackground = true, name = "PIN Entry Screen - Default")
 @Composable
@@ -244,7 +230,7 @@ fun PinEntryScreenPreview() {
     MerchantAppTheme {
         PinEntryScreen(
             viewModel = PinEntryViewModel(SavedStateHandle(mapOf(
-                "amount" to "123.45",
+                "amount" to "1230.45", // Example THB amount
                 "beneficiaryId" to "BEN-001",
                 "beneficiaryName" to "John Doe",
                 "category" to "Groceries"
@@ -259,35 +245,23 @@ fun PinEntryScreenPreview() {
 @Composable
 fun PinEntryScreenErrorPreview() {
     val viewModel = PinEntryViewModel(SavedStateHandle(mapOf(
-        "amount" to "50.00",
+        "amount" to "500.00", // Example THB amount
         "beneficiaryId" to "BEN-002",
         "beneficiaryName" to "Jane Smith",
         "category" to "Utilities"
     )))
-    // Simulate an error state directly in ViewModel for preview (not ideal for real app but ok for preview)
-    // This requires making parts of uiState or methods public if they aren't, or a more complex preview setup.
-    // For simplicity, we'll rely on the ViewModel's internal logic that could lead to an error state.
-    // A better approach is to have a content composable taking PinEntryUiState directly.
-
-    // Simulate a state with an error message
     val errorState = PinEntryUiState(
-        amount = "50.00",
+        amount = "500.00",
         beneficiaryId = "BEN-002",
         beneficiaryName = "Jane Smith",
         category = "Utilities",
-        pinValue = "111", // Incomplete PIN
-        errorMessage = "Incorrect PIN. 2 attempts remaining.",
-        attemptsRemaining = 2
+        pinValue = "111",
+        errorMessage = "Incorrect PIN. 6 attempts remaining.", // Updated for 7 attempts
+        attemptsRemaining = 6 // Updated for 7 attempts
     )
-    // We can't easily inject a pre-configured state directly if the screen uses `viewModel()`
-    // For now, this preview will show the initial state of the VM.
-
     MerchantAppTheme {
-        // To show the error state in preview more directly, you'd refactor PinEntryScreen
-        // to take PinEntryUiState as a parameter, similar to SetNewPasswordScreenContent.
-        // For now, this preview will just show the VM's initial state.
         PinEntryScreen(
-            viewModel = viewModel, // This VM will be in its initial state
+            viewModel = viewModel,
             onNavigateBack = {},
             onPinVerifiedNavigateToSuccess = { _, _, _, _ -> }
         )

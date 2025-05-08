@@ -1,9 +1,10 @@
 // File: app/src/main/java/com/example/merchantapp/ui/login/LoginScreen.kt
 package com.example.merchantapp.ui.login
 
-// Essential Imports (Ensure all needed imports are present)
+// --- Imports --- //
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,14 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,7 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,13 +38,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.merchantapp.R
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.viewmodel.LoginUiState
 import com.example.merchantapp.viewmodel.LoginViewModel
 
-// ============================================================
-// Stateful Composable - Connects to ViewModel
-// ============================================================
+// --- End Imports --- //
+
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = viewModel(),
@@ -60,6 +60,7 @@ fun LoginScreen(
             Log.d("LoginScreen", "Login successful, navigating...")
             Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
             onLoginSuccess()
+            viewModel.onLoginSuccessNavigationConsumed()
         }
     }
 
@@ -67,16 +68,13 @@ fun LoginScreen(
         uiState = uiState,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
-        onLoginClick = viewModel::login,
+        onLoginClick = { viewModel.login(context.applicationContext) },
         onRegisterClick = onNavigateToRegister,
         onForgotPasswordClick = onNavigateToForgotPassword
     )
 }
 
-// ============================================================
-// Stateless Composable - Displays the UI based on state
-// ============================================================
-@OptIn(ExperimentalMaterial3Api::class) // ADDED: Opt-in for Card usage
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreenContent(
     uiState: LoginUiState,
@@ -94,23 +92,26 @@ fun LoginScreenContent(
         verticalArrangement = Arrangement.Center
     ) {
 
-        // --- App Icon and Title ---
-        Icon(
-            imageVector = Icons.Filled.Shield,
-            contentDescription = "App Logo", // Parameter should exist
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary // Parameter should exist
+        // --- MODIFIED: Replaced Icon with Image ---
+        Image(
+            painter = painterResource(id = R.drawable.payforu_logo), // Make sure 'payforu_logo.png' exists in res/drawable
+            contentDescription = "Payforu Logo",
+            modifier = Modifier
+                .height(60.dp) // Adjust height as needed, width will scale proportionally with Fit
+                .fillMaxWidth(0.6f), // Control width relative to screen (adjust fraction 0.0f - 1.0f)
+            contentScale = ContentScale.Fit // Scales the image to fit within the bounds, maintaining aspect ratio
         )
+        // --- End Modification ---
+
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Merchant Portal", // Parameter should exist
+            text = "Merchant Portal",
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- Login Form in a Card ---
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -121,32 +122,29 @@ fun LoginScreenContent(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Email Input Field
                 OutlinedTextField(
                     value = uiState.email,
-                    onValueChange = onEmailChange, // Should be used
+                    onValueChange = onEmailChange,
                     label = { Text("Email Address") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     enabled = !uiState.isLoading
-                ) // Call should be valid
+                )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Password Input Field
                 OutlinedTextField(
                     value = uiState.password,
-                    onValueChange = onPasswordChange, // Should be used
+                    onValueChange = onPasswordChange,
                     label = { Text("Password") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     enabled = !uiState.isLoading
-                ) // Call should be valid
+                )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Error Message Display Area
                 if (uiState.errorMessage != null) {
-                    Text( // This block should not be empty
+                    Text(
                         text = uiState.errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 14.sp,
@@ -155,14 +153,12 @@ fun LoginScreenContent(
                             .padding(vertical = 4.dp)
                     )
                 } else {
-                    // Placeholder space when no error
-                    Spacer(modifier = Modifier.height(22.dp)) // This block should not be empty
+                    Spacer(modifier = Modifier.height(22.dp))
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sign In Button
                 Button(
-                    onClick = onLoginClick, // Should be used, parameter should exist
+                    onClick = onLoginClick,
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {
@@ -175,10 +171,9 @@ fun LoginScreenContent(
                     } else {
                         Text("Sign In")
                     }
-                } // Call should be valid
+                }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Register Link
                 TextButton(
                     onClick = onRegisterClick,
                     enabled = !uiState.isLoading
@@ -186,30 +181,28 @@ fun LoginScreenContent(
                     Text("Register New Store")
                 }
 
-                // Forgot Password TextButton
                 TextButton(
-                    onClick = onForgotPasswordClick, // Should be used
+                    onClick = onForgotPasswordClick,
                     enabled = !uiState.isLoading
                 ) {
                     Text("Forgot Password?")
-                } // Call should be valid
+                }
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Footer Text ---
         Text(
-            text = "Powered by IPPS", // Parameter should exist
+            text = "Powered by IPPS", // You might want to change this too?
             fontSize = 12.sp,
             color = Color.Gray
         )
     }
 }
 
-// ============================================================
-// Preview Functions (Add OptIn for Card)
-// ============================================================
-@OptIn(ExperimentalMaterial3Api::class) // ADDED OptIn
+// --- Preview Functions ---
+// Note: Previews will now show the Image instead of the Icon.
+// Ensure 'payforu_logo.png' is added correctly for previews to work.
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun LoginScreenPreview_DefaultState() {
@@ -225,7 +218,7 @@ fun LoginScreenPreview_DefaultState() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // ADDED OptIn
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun LoginScreenPreview_Loading() {
@@ -241,7 +234,7 @@ fun LoginScreenPreview_Loading() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class) // ADDED OptIn
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun LoginScreenPreview_Error() {

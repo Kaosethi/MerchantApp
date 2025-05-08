@@ -4,7 +4,6 @@ package com.example.merchantapp.ui.transactionsuccess
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-// import androidx.compose.material.icons.filled.Done // Alternative icon
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -12,12 +11,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+// import androidx.compose.ui.graphics.Color // No longer directly used
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+// import androidx.compose.ui.unit.sp // No longer directly used
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.merchantapp.ui.theme.MerchantAppTheme
@@ -36,9 +35,10 @@ fun TransactionSuccessScreen(
     val formattedAmount = remember(uiState.amount) {
         try {
             val amountValue = uiState.amount.toDoubleOrNull() ?: 0.0
-            NumberFormat.getCurrencyInstance(Locale("en", "US")).format(amountValue)
+            // MODIFIED: Changed Locale to th_TH for Thai Baht
+            NumberFormat.getCurrencyInstance(Locale("th", "TH")).format(amountValue)
         } catch (e: Exception) {
-            uiState.amount // Fallback to raw amount if formatting fails
+            uiState.amount
         }
     }
 
@@ -46,7 +46,6 @@ fun TransactionSuccessScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Transaction Successful") },
-                // No navigation icon as this is usually a terminal screen in the flow
             )
         }
     ) { paddingValues ->
@@ -56,12 +55,12 @@ fun TransactionSuccessScreen(
                 .padding(16.dp)
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center // Center content vertically
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = Icons.Filled.CheckCircle,
                 contentDescription = "Success",
-                tint = MaterialTheme.colorScheme.primary, // Or a specific success color e.g., Color.Green
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(100.dp)
             )
 
@@ -116,13 +115,13 @@ fun TransactionDetailItem(label: String, value: String, isAmount: Boolean = fals
             text = label,
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(0.4f) // Adjust weight as needed
+            modifier = Modifier.weight(0.4f)
         )
         Text(
             text = value,
             style = if (isAmount) MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             else MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(0.6f) // Adjust weight as needed
+            modifier = Modifier.weight(0.6f)
         )
     }
 }
@@ -131,9 +130,8 @@ fun TransactionDetailItem(label: String, value: String, isAmount: Boolean = fals
 @Composable
 fun TransactionSuccessScreenPreview() {
     MerchantAppTheme {
-        // Create a dummy SavedStateHandle with preview data
         val previewState = mapOf(
-            "amount" to "75.50",
+            "amount" to "750.50", // Example THB amount
             "beneficiaryId" to "BEN-PREVIEW-001",
             "beneficiaryName" to "Jane Doe Preview",
             "category" to "Shopping",
@@ -154,7 +152,7 @@ fun TransactionSuccessScreenPreview() {
 fun TransactionSuccessScreenDarkPreview() {
     MerchantAppTheme(darkTheme = true) {
         val previewState = mapOf(
-            "amount" to "120.00",
+            "amount" to "1200.00", // Example THB amount
             "beneficiaryId" to "BEN-DARK-007",
             "beneficiaryName" to "Dark Mode User",
             "category" to "Entertainment",

@@ -1,9 +1,6 @@
 // File: app/src/main/java/com/example/merchantapp/MainActivity.kt
 package com.example.merchantapp
 
-// --- Imports ---
-// import androidx.compose.material3.Text // REMOVED: No longer needed for TransactionSuccessScreen placeholder
-// ADDED: Import for TransactionSuccessScreen
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -14,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
@@ -21,6 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.merchantapp.data.local.AuthManager // ADDED: Import AuthManager
 import com.example.merchantapp.navigation.AppDestinations
 import com.example.merchantapp.ui.confirmation.TransactionConfirmationScreen
 import com.example.merchantapp.ui.forgotpassword.ForgotPasswordScreen
@@ -34,7 +33,6 @@ import com.example.merchantapp.ui.setnewpassword.SetNewPasswordScreen
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.ui.transactionsuccess.TransactionSuccessScreen
 
-// --- End Imports ---
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,7 +46,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation() // Call the main navigation composable
+                    // Pass the application context to AppNavigation, or AuthManager could be initialized here
+                    // For simplicity with current AuthManager, passing context.applicationContext
+                    AppNavigation(applicationContext = this.applicationContext)
                 }
             }
         }
@@ -57,14 +57,27 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(applicationContext: android.content.Context) { // MODIFIED: Accept applicationContext
     val navController = rememberNavController()
-    val context = LocalContext.current // Get context for Toast
-    val hardcodedTestToken = "TEST-TOKEN-12345" // Keep if used elsewhere
+    // context for Toasts inside NavHost routes
+    val composableContext = LocalContext.current
+
+    // MODIFIED: Determine start destination based on login state
+    val startDestination = remember {
+        if (AuthManager.isLoggedIn(applicationContext)) {
+            Log.d("AppNavigation", "User is logged in. Starting at Main.")
+            AppDestinations.MAIN_ROUTE
+        } else {
+            Log.d("AppNavigation", "User is NOT logged in. Starting at Login.")
+            AppDestinations.LOGIN_ROUTE
+        }
+    }
+
+    val hardcodedTestToken = "TEST-TOKEN-12345"
 
     NavHost(
         navController = navController,
-        startDestination = AppDestinations.LOGIN_ROUTE
+        startDestination = startDestination // MODIFIED: Use dynamic start destination
     ) {
         // Login Screen
         composable(AppDestinations.LOGIN_ROUTE) {
@@ -96,7 +109,7 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() },
                 onOtpSentNavigateToOtpEntry = { email ->
                     Log.d("AppNavigation", "OTP 'sent' to $email. Navigating to OTP Entry Screen.")
-                    Toast.makeText(context, "OTP 'sent' to $email (Mocked). Use 111111.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(composableContext, "OTP 'sent' to $email (Mocked). Use 111111.", Toast.LENGTH_LONG).show()
                     navController.navigate(AppDestinations.createOtpEntryRoute(email)) {
                         popUpTo(AppDestinations.FORGOT_PASSWORD_ROUTE) { inclusive = true }
                     }
@@ -113,7 +126,7 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() },
                 onOtpVerifiedNavigateToSetPassword = { verifiedEmail ->
                     Log.d("AppNavigation", "OTP Verified for $verifiedEmail. Navigating to Set New Password.")
-                    Toast.makeText(context, "OTP Verified!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(composableContext, "OTP Verified!", Toast.LENGTH_SHORT).show()
                     navController.navigate(AppDestinations.createSetNewPasswordRoute(verifiedEmail)) {
                         val otpRouteWithArg = AppDestinations.OTP_ENTRY_ROUTE_PATTERN.replace("{email}", verifiedEmail)
                         popUpTo(otpRouteWithArg) { inclusive = true }
@@ -133,7 +146,7 @@ fun AppNavigation() {
             SetNewPasswordScreen(
                 onPasswordSetNavigateToLogin = {
                     Log.d("AppNavigation", "Password successfully reset. Navigating to Login.")
-                    Toast.makeText(context, "Password reset successfully! Please log in.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(composableContext, "Password reset successfully! Please log in.", Toast.LENGTH_LONG).show()
                     navController.navigate(AppDestinations.LOGIN_ROUTE) {
                         popUpTo(AppDestinations.LOGIN_ROUTE) { inclusive = true }
                         launchSingleTop = true
@@ -151,9 +164,16 @@ fun AppNavigation() {
             }
             MainScreen(
                 onLogoutRequest = {
+                    // MODIFIED: Clear login data on logout
+                    AuthManager.clearLoginData(applicationContext)
+                    Log.d("AppNavigation", "User logged out. Navigating to Login.")
                     navController.navigate(AppDestinations.LOGIN_ROUTE) {
-                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                        launchSingleTop = true
+                        // Pop everything up to and including the graph's start destination if it's the login screen,
+                        // or just pop all screens above a new Login screen instance.
+                        popUpTo(navController.graph.id) { // Pop the entire graph if going to login
+                            inclusive = true
+                        }
+                        launchSingleTop = true // Ensure only one instance of Login screen
                     }
                 },
                 onNavigateToQrScan = onNavigateToQrScan
@@ -216,7 +236,6 @@ fun AppNavigation() {
                         category = navCategory
                     )
                     navController.navigate(pinEntryRoute)
-                    // No popUpTo here, so user can go back from PIN to Confirmation if they want.
                 }
             )
         }
@@ -235,7 +254,7 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() },
                 onPinVerifiedNavigateToSuccess = { navAmount, navBeneficiaryId, navBeneficiaryName, navCategory ->
                     Log.d("AppNavigation", "PIN Verified. Navigating to Transaction Success. Amount: $navAmount, Category: $navCategory")
-                    Toast.makeText(context, "PIN Verified!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(composableContext, "PIN Verified!", Toast.LENGTH_SHORT).show()
                     val mockTransactionId = "TXN-${System.currentTimeMillis()}"
                     val successRoute = AppDestinations.createTransactionSuccessRoute(
                         amount = navAmount,
@@ -245,7 +264,6 @@ fun AppNavigation() {
                         transactionId = mockTransactionId
                     )
                     navController.navigate(successRoute) {
-                        // Pop PIN entry screen off the stack
                         val pinEntryRouteWithArgs = AppDestinations.PIN_ENTRY_ROUTE_PATTERN
                             .replace("{amount}", navAmount)
                             .replace("{beneficiaryId}", navBeneficiaryId)
@@ -253,19 +271,17 @@ fun AppNavigation() {
                             .replace("{category}", navCategory)
                         popUpTo(pinEntryRouteWithArgs) { inclusive = true }
 
-                        // MODIFIED: Also pop TransactionConfirmationScreen to prevent going back to it
-                        // from the success screen.
                         val confirmRoute = AppDestinations.TRANSACTION_CONFIRMATION_ROUTE
-                            .replace("{amount}", navAmount) // Use the current amount for the route pattern
-                            .replace("{beneficiaryId}", navBeneficiaryId) // Use the current ID
-                            .replace("{beneficiaryName}", navBeneficiaryName) // Use the current name
+                            .replace("{amount}", navAmount)
+                            .replace("{beneficiaryId}", navBeneficiaryId)
+                            .replace("{beneficiaryName}", navBeneficiaryName)
                         popUpTo(confirmRoute) { inclusive = true }
                     }
                 }
             )
         }
 
-        // MODIFIED: Transaction Success Screen - Now calls the actual screen
+        // Transaction Success Screen
         composable(
             route = AppDestinations.TRANSACTION_SUCCESS_ROUTE_PATTERN,
             arguments = listOf(
@@ -276,20 +292,14 @@ fun AppNavigation() {
                 navArgument("transactionId") {type = NavType.StringType }
             )
         ) {
-            // TransactionSuccessViewModel will handle retrieving arguments via SavedStateHandle
             TransactionSuccessScreen(
                 onNavigateToHome = {
                     Log.d("AppNavigation", "Transaction Success: Navigating to Main Screen.")
                     navController.navigate(AppDestinations.MAIN_ROUTE) {
-                        // Pop everything up to the Main screen (inclusive if it's already on top,
-                        // or just pop all screens above a new Main screen instance).
-                        // This ensures a clean stack back to the home/main area.
                         popUpTo(AppDestinations.MAIN_ROUTE) {
-                            inclusive = false // Keep the MAIN_ROUTE itself if navigating to it fresh
-                            // Set to true if MAIN_ROUTE could be an intermediate screen you want to clear.
-                            // For returning to a primary home screen, 'false' is often desired.
+                            inclusive = false
                         }
-                        launchSingleTop = true // Ensure only one instance of MainScreen
+                        launchSingleTop = true
                     }
                 }
             )

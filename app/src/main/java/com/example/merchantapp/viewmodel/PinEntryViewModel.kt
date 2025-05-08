@@ -25,7 +25,7 @@ class PinEntryViewModel(
 
     companion object {
         const val MAX_PIN_LENGTH = 4
-        const val MAX_ATTEMPTS = 3
+        const val MAX_ATTEMPTS = 8
     }
 
     init {
