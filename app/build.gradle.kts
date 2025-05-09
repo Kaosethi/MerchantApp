@@ -1,3 +1,5 @@
+// File: app/build.gradle.kts
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,13 +19,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
-            useSupportLibrary = true // Often needed for vector drawables
+            useSupportLibrary = true
         }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = false // Keep as false for easier debugging during development
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -33,6 +35,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // ADDED: Enable core library desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "11"
@@ -45,7 +49,7 @@ android {
     }
     packaging {
         resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}" // Common exclusion for compose
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }
@@ -83,7 +87,6 @@ dependencies {
     // CameraX
     val cameraxVersion = "1.3.3" // Use latest stable
     implementation("androidx.camera:camera-core:${cameraxVersion}")
-    //noinspection GradleDependency
     implementation("androidx.camera:camera-camera2:${cameraxVersion}")
     implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
     implementation("androidx.camera:camera-view:${cameraxVersion}")
@@ -92,9 +95,14 @@ dependencies {
     val accompanistVersion = "0.34.0" // Use latest stable
     implementation("com.google.accompanist:accompanist-permissions:${accompanistVersion}")
 
-
     // AppCompat (Often needed for themes, compatibility, delegates)
     implementation("androidx.appcompat:appcompat:1.6.1") // Use latest stable
+
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.2.0") // Use latest stable version
+
+    // Core library desugaring dependency
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4") // Check for latest stable version
 
     // Test Dependencies
     testImplementation(libs.junit)

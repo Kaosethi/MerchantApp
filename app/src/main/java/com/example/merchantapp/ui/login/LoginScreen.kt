@@ -1,77 +1,89 @@
-package com.example.merchantapp.ui.login // Make sure this matches your package structure
+// File: app/src/main/java/com/example/merchantapp/ui/login/LoginScreen.kt
+package com.example.merchantapp.ui.login
 
-// Essential Imports for Layout and UI Elements
+// --- Imports --- //
 import android.util.Log
-import android.widget.Toast // ADDED: For showing simple messages
-import androidx.compose.foundation.layout.* // Keep wildcard imports for layout
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.* // Keep wildcard import for Material 3 components
-import androidx.compose.runtime.* // Keep wildcard import for Compose runtime
+import android.widget.Toast
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext // ADDED: To show Toast messages
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// ViewModel and StateFlow related imports
-import androidx.lifecycle.viewmodel.compose.viewModel // ADDED: For getting ViewModel instance
-import androidx.lifecycle.compose.collectAsStateWithLifecycle // ADDED: For collecting StateFlow safely
-import com.example.merchantapp.viewmodel.LoginUiState // ADDED: Import the UI State class
-import com.example.merchantapp.viewmodel.LoginViewModel // ADDED: Import the ViewModel class
-
-// Import your AppTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.merchantapp.R
 import com.example.merchantapp.ui.theme.MerchantAppTheme
+import com.example.merchantapp.viewmodel.LoginUiState
+import com.example.merchantapp.viewmodel.LoginViewModel
 
-// ============================================================
-// Stateful Composable - Connects to ViewModel
-// ============================================================
+// --- End Imports --- //
+
 @Composable
 fun LoginScreen(
-    viewModel: LoginViewModel = viewModel(), // Get instance provided by lifecycle library
-    onNavigateToRegister: () -> Unit, // Callback for navigating to registration
-    onLoginSuccess: () -> Unit // Callback for navigating after successful login
+    viewModel: LoginViewModel = viewModel(),
+    onNavigateToRegister: () -> Unit,
+    onLoginSuccess: () -> Unit,
+    onNavigateToForgotPassword: () -> Unit
 ) {
-    // Collect the UI state from the ViewModel in a lifecycle-aware manner
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current // Get context for showing Toasts
+    val context = LocalContext.current
 
-    // Use LaunchedEffect to react to loginSuccess state change
     LaunchedEffect(uiState.loginSuccess) {
         if (uiState.loginSuccess) {
             Log.d("LoginScreen", "Login successful, navigating...")
             Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
-            // TODO: Perform navigation or other actions on successful login
             onLoginSuccess()
+            viewModel.onLoginSuccessNavigationConsumed()
         }
     }
 
-    // Call the stateless content composable, passing state and event handlers
     LoginScreenContent(
         uiState = uiState,
-        onEmailChange = viewModel::onEmailChange, // Pass ViewModel functions as callbacks
+        onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
-        onLoginClick = viewModel::login,
-        onRegisterClick = onNavigateToRegister // Pass navigation callback through
+        onLoginClick = { viewModel.login(context.applicationContext) },
+        onRegisterClick = onNavigateToRegister,
+        onForgotPasswordClick = onNavigateToForgotPassword
     )
 }
 
-// ============================================================
-// Stateless Composable - Displays the UI based on state
-// ============================================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreenContent(
-    uiState: LoginUiState, // Receive state as parameter
+    uiState: LoginUiState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit,
-    onRegisterClick: () -> Unit
+    onRegisterClick: () -> Unit,
+    onForgotPasswordClick: () -> Unit
 ) {
-    // UI Layout: Arranging elements vertically and centered
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -80,13 +92,17 @@ fun LoginScreenContent(
         verticalArrangement = Arrangement.Center
     ) {
 
-        // --- App Icon and Title ---
-        Icon(
-            imageVector = Icons.Filled.Shield,
-            contentDescription = "App Logo",
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary
+        // --- MODIFIED: Replaced Icon with Image ---
+        Image(
+            painter = painterResource(id = R.drawable.payforu_logo), // Make sure 'payforu_logo.png' exists in res/drawable
+            contentDescription = "Payforu Logo",
+            modifier = Modifier
+                .height(60.dp) // Adjust height as needed, width will scale proportionally with Fit
+                .fillMaxWidth(0.6f), // Control width relative to screen (adjust fraction 0.0f - 1.0f)
+            contentScale = ContentScale.Fit // Scales the image to fit within the bounds, maintaining aspect ratio
         )
+        // --- End Modification ---
+
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Merchant Portal",
@@ -96,7 +112,6 @@ fun LoginScreenContent(
         )
         Spacer(modifier = Modifier.height(32.dp))
 
-        // --- Login Form in a Card ---
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -104,35 +119,33 @@ fun LoginScreenContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp)
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Email Input Field - Value and action driven by uiState and callbacks
                 OutlinedTextField(
-                    value = uiState.email, // MODIFIED: Use value from uiState
-                    onValueChange = onEmailChange, // MODIFIED: Call provided callback
+                    value = uiState.email,
+                    onValueChange = onEmailChange,
                     label = { Text("Email Address") },
-                    modifier = Modifier.fillMaxWidth(), // Make field wide
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    enabled = !uiState.isLoading // MODIFIED: Disable when loading
+                    enabled = !uiState.isLoading
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Password Input Field - Value and action driven by uiState and callbacks
                 OutlinedTextField(
-                    value = uiState.password, // MODIFIED: Use value from uiState
-                    onValueChange = onPasswordChange, // MODIFIED: Call provided callback
+                    value = uiState.password,
+                    onValueChange = onPasswordChange,
                     label = { Text("Password") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    enabled = !uiState.isLoading // MODIFIED: Disable when loading
+                    enabled = !uiState.isLoading
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Error Message Display Area - Driven by uiState
-                if (uiState.errorMessage != null) { // MODIFIED: Check error in uiState
+                if (uiState.errorMessage != null) {
                     Text(
-                        text = uiState.errorMessage, // MODIFIED: Show error from uiState
+                        text = uiState.errorMessage,
                         color = MaterialTheme.colorScheme.error,
                         fontSize = 14.sp,
                         modifier = Modifier
@@ -140,18 +153,15 @@ fun LoginScreenContent(
                             .padding(vertical = 4.dp)
                     )
                 } else {
-                    // Placeholder space when no error
                     Spacer(modifier = Modifier.height(22.dp))
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sign In Button - Action driven by callback, state driven by uiState
                 Button(
-                    onClick = onLoginClick, // MODIFIED: Call provided callback
+                    onClick = onLoginClick,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading // MODIFIED: Disable when loading
+                    enabled = !uiState.isLoading
                 ) {
-                    // MODIFIED: Show loading indicator or text
                     if (uiState.isLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
@@ -164,70 +174,78 @@ fun LoginScreenContent(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Register Link
                 TextButton(
-                    onClick = onRegisterClick, // Use provided callback
-                    enabled = !uiState.isLoading // MODIFIED: Disable when loading
+                    onClick = onRegisterClick,
+                    enabled = !uiState.isLoading
                 ) {
                     Text("Register New Store")
+                }
+
+                TextButton(
+                    onClick = onForgotPasswordClick,
+                    enabled = !uiState.isLoading
+                ) {
+                    Text("Forgot Password?")
                 }
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Footer Text ---
         Text(
-            text = "Powered by IPPS",
+            text = "Powered by IPPS", // You might want to change this too?
             fontSize = 12.sp,
             color = Color.Gray
         )
     }
 }
 
-// ============================================================
-// Preview Function - Previews the stateless content
-// ============================================================
+// --- Preview Functions ---
+// Note: Previews will now show the Image instead of the Icon.
+// Ensure 'payforu_logo.png' is added correctly for previews to work.
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun LoginScreenPreview_DefaultState() {
     MerchantAppTheme {
-        // Preview the stateless content with default state
         LoginScreenContent(
-            uiState = LoginUiState(), // Use default state
-            onEmailChange = {}, // Dummy actions for preview
+            uiState = LoginUiState(),
+            onEmailChange = {},
             onPasswordChange = {},
             onLoginClick = {},
-            onRegisterClick = {}
+            onRegisterClick = {},
+            onForgotPasswordClick = {}
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun LoginScreenPreview_Loading() {
     MerchantAppTheme {
-        // Preview the stateless content in loading state
         LoginScreenContent(
             uiState = LoginUiState(isLoading = true, email = "test@test.com", password = "password"),
             onEmailChange = {},
             onPasswordChange = {},
             onLoginClick = {},
-            onRegisterClick = {}
+            onRegisterClick = {},
+            onForgotPasswordClick = {}
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun LoginScreenPreview_Error() {
     MerchantAppTheme {
-        // Preview the stateless content with an error message
         LoginScreenContent(
             uiState = LoginUiState(errorMessage = "Invalid credentials", email = "test@test.com", password = "wrong"),
             onEmailChange = {},
             onPasswordChange = {},
             onLoginClick = {},
-            onRegisterClick = {}
+            onRegisterClick = {},
+            onForgotPasswordClick = {}
         )
     }
 }

@@ -56,7 +56,8 @@
     <string name="pin_entry_backspace">Backspace</string>
     <string name="confirm_label_account_id">Account ID</string>
     <string name="confirm_label_amount_to_charge">Amount to Charge</string>
-    <string name="confirm_label_category">Category</string>
+    <string name="confirm_select_category_placeholder">Select Category</string> <!-- THIS ONE -->
+    <string name="confirm_label_category">Category</string> <!-- AND THIS ONE -->
     <!-- MODIFIED: Changed placeholder text slightly for clarity -->
     <string name="confirm_placeholder_category">Select transaction category</string>
     <!-- REMOVED: Merchant PIN field strings as they are no longer used on this screen -->

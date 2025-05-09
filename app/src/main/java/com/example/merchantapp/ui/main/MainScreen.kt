@@ -2,9 +2,7 @@
 package com.example.merchantapp.ui.main
 
 // --- Imports ---
-// Use Optimize Imports (Ctrl+Alt+O / Cmd+Option+O)
 import android.annotation.SuppressLint
-// REMOVED: import android.util.Log (no longer needed here)
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
@@ -23,8 +21,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.merchantapp.R
 import com.example.merchantapp.navigation.BottomNavScreens
-import com.example.merchantapp.ui.analytics.AnalyticsDashboardScreen
-import com.example.merchantapp.ui.amount.AmountEntryScreen // Ensure this is imported
+import com.example.merchantapp.ui.analytics.AnalyticsDashboardScreen // Assuming this exists
+import com.example.merchantapp.ui.amount.AmountEntryScreen
+// MODIFIED: Ensure the correct TransactionSummaryScreen is imported
 import com.example.merchantapp.ui.summary.TransactionSummaryScreen
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 // --- End Imports ---
@@ -40,6 +39,8 @@ data class BottomNavItemData(
 fun MainScreen(
     onLogoutRequest: () -> Unit,
     onNavigateToQrScan: (String) -> Unit
+    // Pass topLevelNavController if MainScreen needs to trigger navigations outside its own bottom nav scope
+    // topLevelNavController: NavHostController
 ) {
     val bottomNavController = rememberNavController()
 
@@ -56,29 +57,30 @@ fun MainScreen(
                 items = bottomNavItems
             )
         }
+        // You can add a TopAppBar here if MainScreen itself should have one,
+        // independent of the content of the bottom nav tabs.
+        // topBar = { TopAppBar(title = { Text("Merchant App") }) }
     ) { innerPadding ->
-        // *** Nested NavHost ***
         NavHost(
             navController = bottomNavController,
             startDestination = BottomNavScreens.AMOUNT_ENTRY,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding) // Apply padding from Scaffold
         ) {
-            // *** MODIFIED: Amount Entry Route Restored ***
             composable(BottomNavScreens.AMOUNT_ENTRY) {
-                // --- RESTORED ACTUAL AmountEntryScreen CALL ---
                 AmountEntryScreen(
-                    // ViewModel will be implicitly provided by Hilt/viewModel() call inside AmountEntryScreen
-                    onLogoutRequest = onLogoutRequest, // Pass down the lambda
-                    onNavigateToQrScan = onNavigateToQrScan // Pass down the lambda
+                    onLogoutRequest = onLogoutRequest,
+                    onNavigateToQrScan = onNavigateToQrScan
                 )
-                // --- REMOVED Test Text and Log ---
             }
-            // Other bottom nav destinations remain the same
             composable(BottomNavScreens.SUMMARY) {
-                TransactionSummaryScreen() // Assuming this is a simple placeholder
+                // MODIFIED: Call the actual TransactionSummaryScreen
+                // The ViewModel will be provided internally by `viewModel()`
+                TransactionSummaryScreen()
             }
             composable(BottomNavScreens.ANALYTICS) {
-                AnalyticsDashboardScreen() // Assuming this is a simple placeholder
+                // TODO: Replace with actual AnalyticsDashboardScreen if it's more complex
+                // For now, assuming it's a simple composable or uses its own ViewModel
+                AnalyticsDashboardScreen()
             }
         }
     }
@@ -91,8 +93,7 @@ fun BottomNavigationBar(
     items: List<BottomNavItemData>,
     modifier: Modifier = Modifier
 ) {
-    // ... (BottomNavigationBar implementation remains the same) ...
-    NavigationBar(modifier = modifier) {
+    NavigationBar(modifier = modifier) { // Using Material 3 NavigationBar
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
@@ -104,13 +105,21 @@ fun BottomNavigationBar(
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            // Pop up to the start destination of the graph to
+                            // avoid building up a large stack of destinations
+                            // on the back stack as users select items
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            // Avoid multiple copies of the same destination when
+                            // reselecting the same item
                             launchSingleTop = true
+                            // Restore state when reselecting a previously selected item
                             restoreState = true
                         }
                     }
                 },
-                alwaysShowLabel = true
+                alwaysShowLabel = true // Material 3 often shows labels by default, but explicit is fine
             )
         }
     }
