@@ -1,11 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+    <!-- Allow cleartext for 10.0.2.2 (local emulator) -->
     <domain-config cleartextTrafficPermitted="true">
-        <!-- Allow cleartext traffic specifically for the emulator loopback address -->
         <domain includeSubdomains="true">10.0.2.2</domain>
-        <!-- If testing on a physical device using your local machine's IP, add that too: -->
-        <!-- <domain includeSubdomains="true">YOUR_LOCAL_IPV4_ADDRESS</domain> -->
     </domain-config>
-    <!-- You can add base-config here if needed for default HTTPS enforcement later -->
-    <base-config cleartextTrafficPermitted="false" />
+
+    <!-- Configuration for your ngrok domain -->
+    <domain-config>
+        <domain includeSubdomains="true">4fee-83-118-108-226.ngrok-free.app</domain>
+        <!-- For development, allow user-added CAs.
+             This often helps with proxies and tunnels like ngrok
+             that might use intermediate certificates not in the default system store. -->
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" /> <!-- IMPORTANT FOR NGROK/PROXY DEV -->
+        </trust-anchors>
+    </domain-config>
+
+    <!-- OPTIONAL: Base config for general development if you face issues with other domains.
+         Be careful with allowing cleartextTrafficPermitted="true" broadly in production. -->
+    <!--
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    -->
 </network-security-config>

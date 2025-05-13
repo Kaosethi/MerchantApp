@@ -1,35 +1,38 @@
-package com.example.merchantapp.network // Adjust if your root package is different
+// File: app/src/main/java/com/example/merchantapp/network/ApiService.kt
+package com.example.merchantapp.network
 
-import com.example.merchantapp.data.LoginRequest // Import request data class
-import com.example.merchantapp.data.LoginResponse // Import response data class
-import retrofit2.Response // Import Retrofit's Response wrapper
+import com.example.merchantapp.model.LoginRequest
+import com.example.merchantapp.model.LoginResponse
+import com.example.merchantapp.model.MerchantProfileResponse
+import com.example.merchantapp.model.TransactionApiResponse
+import com.example.merchantapp.model.MerchantRegistrationRequest // <<< ADD THIS IMPORT
+import com.example.merchantapp.model.MerchantRegistrationResponse // <<< ADD THIS IMPORT
+
+import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.POST
 
-/**
- * Defines the API endpoints using Retrofit annotations.
- */
 interface ApiService {
 
-    /**
-     * Defines the login endpoint call.
-     *
-     * IMPORTANT: Replace "api/v1/auth/merchant/login" with the ACTUAL path
-     *            to your merchant login endpoint on your backend API.
-     *
-     * - @POST specifies the HTTP method and the relative path to the base URL.
-     * - @Body indicates that the 'request' object will be serialized into the request body (JSON).
-     * - @Headers can be used to add static headers (like Content-Type) if needed.
-     * - Response<LoginResponse>: Wraps the expected LoginResponse in Retrofit's Response class.
-     *   This provides access to HTTP status codes and headers, useful for error handling.
-     */
-    @Headers("Content-Type: application/json") // Common header for sending JSON
-    @POST("api/v1/auth/merchant/login") // <-- !!! REPLACE WITH YOUR ACTUAL LOGIN PATH !!!
-    suspend fun login(
-        @Body request: LoginRequest
-    ): Response<LoginResponse>
+    @POST("api/merchant-app/auth/login")
+    suspend fun merchantLogin(@Body loginRequest: LoginRequest): Response<LoginResponse>
 
-    // TODO: Add other API endpoint definitions here later (e.g., get transactions, process transaction)
+    // --- ADD THIS FUNCTION ---
+    @POST("api/merchant-app/auth/register")
+    suspend fun merchantRegister(@Body registrationRequest: MerchantRegistrationRequest): Response<MerchantRegistrationResponse>
+    // --- END ---
 
+    @GET("api/merchant-app/profile")
+    @Headers("Authorization: Bearer mock-jwt-token-for-merchant") // TEMPORARY
+    suspend fun getMerchantProfile(): Response<MerchantProfileResponse>
+
+    @GET("api/merchant-app/transactions")
+    @Headers("Authorization: Bearer mock-jwt-token-for-merchant") // TEMPORARY
+    suspend fun getMerchantTransactions(): Response<List<TransactionApiResponse>>
+
+    /*
+    // TODO: Define other endpoints for beneficiaries, processing transactions, etc.
+    */
 }

@@ -1,9 +1,10 @@
 // File: app/src/main/java/com/example/merchantapp/MainActivity.kt
+// MODIFIED: Implemented startDestination logic in AppNavigation based on login status.
 package com.example.merchantapp
 
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
+import android.util.Log // ADDED: Import Log if not already present
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,8 +25,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.merchantapp.data.local.AuthManager
-import com.example.merchantapp.navigation.AppDestinations
+import com.example.merchantapp.data.local.AuthManager // Ensure AuthManager is correctly imported
+import com.example.merchantapp.navigation.AppDestinations // Ensure AppDestinations is correctly imported
 import com.example.merchantapp.ui.confirmation.TransactionConfirmationScreen
 import com.example.merchantapp.ui.forgotpassword.ForgotPasswordScreen
 import com.example.merchantapp.ui.login.LoginScreen
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // Pass the Application Context, needed by AuthManager
                     AppNavigation(applicationContext = this.applicationContext)
                 }
             }
@@ -63,17 +65,31 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(applicationContext: Context) {
     val navController = rememberNavController()
+    // LocalContext provides the Context of the current Composable, useful for Toasts etc.
     val composableContext = LocalContext.current
 
-    val startDestination = remember { /* ... login check ... */ }
+    // --- FIXED: Implement the start destination logic ---
+    // Determine the starting screen based on login status
+    val startDestination = remember {
+        // Use your AuthManager (or however you check login status)
+        // Make sure AuthManager.isLoggedIn exists and works correctly
+        if (AuthManager.isLoggedIn(applicationContext)) {
+            Log.d("AppNavigation", "User is logged in, starting at Main.")
+            AppDestinations.MAIN_ROUTE // Return MAIN_ROUTE string if logged in
+        } else {
+            Log.d("AppNavigation", "User is NOT logged in, starting at Login.")
+            AppDestinations.LOGIN_ROUTE // Return LOGIN_ROUTE string if not logged in
+        }
+    }
+    // --- End FIXED section ---
 
-    // val hardcodedTestToken = "TEST-TOKEN-12345" // No longer needed here
 
     NavHost(
         navController = navController,
-        startDestination = startDestination.toString()
+        // Pass the calculated startDestination String directly
+        startDestination = startDestination // REMOVED .toString()
     ) {
-        // --- Login, Register, Forgot PW, OTP, Set PW, Main screens remain the same ---
+        // --- Login Screen ---
         composable(AppDestinations.LOGIN_ROUTE) {
             LoginScreen(
                 onNavigateToRegister = { navController.navigate(AppDestinations.REGISTER_ROUTE) },
@@ -89,16 +105,21 @@ fun AppNavigation(applicationContext: Context) {
                 }
             )
         }
+
+        // --- Register Screen ---
         composable(AppDestinations.REGISTER_ROUTE) {
             RegisterScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+
+        // --- Forgot Password Screen ---
         composable(AppDestinations.FORGOT_PASSWORD_ROUTE) {
             ForgotPasswordScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onOtpSentNavigateToOtpEntry = { email ->
                     Log.d("AppNavigation", "Navigating to OTP Entry for $email")
+                    // Use composableContext for Toast inside composable
                     Toast.makeText(composableContext, "OTP 'sent' (Mocked: 111111)", Toast.LENGTH_LONG).show()
                     navController.navigate(AppDestinations.createOtpEntryRoute(email)) {
                         popUpTo(AppDestinations.FORGOT_PASSWORD_ROUTE) { inclusive = true }
@@ -106,6 +127,8 @@ fun AppNavigation(applicationContext: Context) {
                 }
             )
         }
+
+        // --- OTP Entry Screen ---
         composable(
             route = AppDestinations.OTP_ENTRY_ROUTE_PATTERN,
             arguments = listOf(navArgument("email") { type = NavType.StringType })
@@ -123,6 +146,8 @@ fun AppNavigation(applicationContext: Context) {
                 onRequestResendOtp = { Log.d("AppNavigation", "Resend OTP requested") }
             )
         }
+
+        // --- Set New Password Screen ---
         composable(
             route = AppDestinations.SET_NEW_PASSWORD_ROUTE_PATTERN,
             arguments = listOf(navArgument("email_or_token") { type = NavType.StringType })
@@ -138,9 +163,12 @@ fun AppNavigation(applicationContext: Context) {
                 }
             )
         }
+
+        // --- Main Screen ---
         composable(AppDestinations.MAIN_ROUTE) {
             MainScreen(
                 onLogoutRequest = {
+                    // Use applicationContext for AuthManager operations
                     AuthManager.clearLoginData(applicationContext)
                     Log.d("AppNavigation", "User logged out. Navigating to Login.")
                     navController.navigate(AppDestinations.LOGIN_ROUTE) {
@@ -156,7 +184,7 @@ fun AppNavigation(applicationContext: Context) {
         }
 
 
-        // --- MODIFIED: QR Scan Screen ---
+        // --- QR Scan Screen ---
         composable(
             route = AppDestinations.QR_SCAN_ROUTE, // Route still has {amount} argument
             arguments = listOf(navArgument("amount") { type = NavType.StringType })
@@ -194,7 +222,7 @@ fun AppNavigation(applicationContext: Context) {
             )
         }
 
-        // --- TransactionConfirmationScreen, PinEntryScreen, TransactionSuccessScreen remain the same ---
+        // --- Transaction Confirmation Screen ---
         composable(
             route = AppDestinations.TRANSACTION_CONFIRMATION_ROUTE,
             arguments = listOf(
@@ -216,6 +244,8 @@ fun AppNavigation(applicationContext: Context) {
                 }
             )
         }
+
+        // --- Pin Entry Screen ---
         composable(
             route = AppDestinations.PIN_ENTRY_ROUTE_PATTERN,
             arguments = listOf(
@@ -249,6 +279,8 @@ fun AppNavigation(applicationContext: Context) {
                 }
             )
         }
+
+        // --- Transaction Success Screen ---
         composable(
             route = AppDestinations.TRANSACTION_SUCCESS_ROUTE_PATTERN,
             arguments = listOf(
@@ -270,5 +302,5 @@ fun AppNavigation(applicationContext: Context) {
             )
         }
 
-    }
-}
+    } // End NavHost
+} // End AppNavigation
