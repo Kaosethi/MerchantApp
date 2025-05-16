@@ -465,7 +465,7 @@ class PreviewTransactionSummaryViewModel(val darkMode: Boolean = false) : Transa
             TransactionItem("T008", "FTXN-MOCK-008", LocalDateTime.of(2024,3,23,15,45), "ACC-BEN-004", "Pat Pending", 75.00, TransactionStatus.PENDING, "Books"),
             TransactionItem("T004", "FTXN-MOCK-004", LocalDateTime.of(2024,3,21,11,0), "ACC-BEN-005", "Alice D. Approved", 550.50, TransactionStatus.APPROVED, "Coffee"),
             TransactionItem("T001", "FTXN-MOCK-001", LocalDateTime.of(2024,3,20,9,0), "ACC-BEN-006", "Bob L. Approved", 1000.00, TransactionStatus.APPROVED, "Parking"),
-            TransactionItem("T002", "FTXN-MOCK-002", LocalDateTime.of(2024,3,18,16,30), "ACC-BEN-007", "Alice D. Declined", 2000.00, TransactionStatus.DECLINED, "Electronics", DeclineReason.AccountInactive),
+            TransactionItem("T002", "FTXN-MOCK-002", LocalDateTime.of(2024,3,18,16,30), "ACC-BEN-007", "Alice D. Declined", 2000.00, TransactionStatus.DECLINED, "Electronics", DeclineReason.AccountSuspended),
             TransactionItem("T003", "FTXN-MOCK-003", LocalDateTime.of(2024,3,17,14,15), "ACC-BEN-008", "Charlie M. Failed", 3000.00, TransactionStatus.FAILED, "Movies", DeclineReason.Other("System Error"))
         ).sortedByDescending { it.dateTime } // Ensure sorted for preview consistency
         super._uiState.value = TransactionSummaryUiState(

@@ -165,11 +165,13 @@ fun AppNavigation(applicationContext: Context) {
         }
 
         // --- Main Screen ---
+        // --- Main Screen ---
+        // --- Main Screen ---
         composable(AppDestinations.MAIN_ROUTE) {
             MainScreen(
                 onLogoutRequest = {
                     // Use applicationContext for AuthManager operations
-                    AuthManager.clearLoginData(applicationContext)
+                    AuthManager.logout(applicationContext) // <<< CORRECTED CALL
                     Log.d("AppNavigation", "User logged out. Navigating to Login.")
                     navController.navigate(AppDestinations.LOGIN_ROUTE) {
                         popUpTo(navController.graph.id) { inclusive = true }

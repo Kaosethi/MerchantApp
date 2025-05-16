@@ -1,4 +1,4 @@
-// File: app/src/main/java/com/example/merchantapp/ui/login/LoginScreen.kt
+// MODIFIED: app/src/main/java/com/example/merchantapp/ui/login/LoginScreen.kt
 package com.example.merchantapp.ui.login
 
 // --- Imports --- //
@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.merchantapp.R
+import com.example.merchantapp.R // Ensure this R import is correct
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.viewmodel.LoginUiState
 import com.example.merchantapp.viewmodel.LoginViewModel
@@ -53,14 +53,14 @@ fun LoginScreen(
     onNavigateToForgotPassword: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context = LocalContext.current // context can still be used for Toasts, etc.
 
     LaunchedEffect(uiState.loginSuccess) {
         if (uiState.loginSuccess) {
             Log.d("LoginScreen", "Login successful, navigating...")
             Toast.makeText(context, "Login Successful!", Toast.LENGTH_SHORT).show()
             onLoginSuccess()
-            viewModel.onLoginSuccessNavigationConsumed()
+            viewModel.onLoginSuccessNavigationConsumed() // Reset flag after navigation
         }
     }
 
@@ -68,7 +68,7 @@ fun LoginScreen(
         uiState = uiState,
         onEmailChange = viewModel::onEmailChange,
         onPasswordChange = viewModel::onPasswordChange,
-        onLoginClick = { viewModel.login(context.applicationContext) },
+        onLoginClick = { viewModel.login() }, // MODIFIED: Call login() without arguments
         onRegisterClick = onNavigateToRegister,
         onForgotPasswordClick = onNavigateToForgotPassword
     )
@@ -80,7 +80,7 @@ fun LoginScreenContent(
     uiState: LoginUiState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
-    onLoginClick: () -> Unit,
+    onLoginClick: () -> Unit, // This lambda now takes no arguments
     onRegisterClick: () -> Unit,
     onForgotPasswordClick: () -> Unit
 ) {
@@ -92,17 +92,14 @@ fun LoginScreenContent(
         verticalArrangement = Arrangement.Center
     ) {
 
-        // --- MODIFIED: Replaced Icon with Image ---
         Image(
-            painter = painterResource(id = R.drawable.payforu_logo), // Make sure 'payforu_logo.png' exists in res/drawable
+            painter = painterResource(id = R.drawable.payforu_logo),
             contentDescription = "Payforu Logo",
             modifier = Modifier
-                .height(60.dp) // Adjust height as needed, width will scale proportionally with Fit
-                .fillMaxWidth(0.6f), // Control width relative to screen (adjust fraction 0.0f - 1.0f)
-            contentScale = ContentScale.Fit // Scales the image to fit within the bounds, maintaining aspect ratio
+                .height(60.dp)
+                .fillMaxWidth(0.6f),
+            contentScale = ContentScale.Fit
         )
-        // --- End Modification ---
-
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "Merchant Portal",
@@ -153,12 +150,13 @@ fun LoginScreenContent(
                             .padding(vertical = 4.dp)
                     )
                 } else {
-                    Spacer(modifier = Modifier.height(22.dp))
+                    // Provide a consistent space even when no error message, for layout stability
+                    Spacer(modifier = Modifier.height( (14.sp.value * LocalContext.current.resources.displayMetrics.scaledDensity + 8.dp.value).dp)) // approx height of error text + padding
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp)) // Spacing before button
 
                 Button(
-                    onClick = onLoginClick,
+                    onClick = onLoginClick, // This lambda is passed down
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isLoading
                 ) {
@@ -192,16 +190,14 @@ fun LoginScreenContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Powered by IPPS", // You might want to change this too?
+            text = "Powered by IPPS",
             fontSize = 12.sp,
             color = Color.Gray
         )
     }
 }
 
-// --- Preview Functions ---
-// Note: Previews will now show the Image instead of the Icon.
-// Ensure 'payforu_logo.png' is added correctly for previews to work.
+// --- Preview Functions remain the same ---
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable

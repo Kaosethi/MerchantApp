@@ -1,24 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Allow cleartext for 10.0.2.2 (local emulator) -->
+    <!-- Allow cleartext for 10.0.2.2 (local emulator development for HTTP) -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
     </domain-config>
 
-    <!-- Configuration for your ngrok domain -->
+    <!-- REMOVED: Configuration for the old ngrok domain -->
+    <!--
     <domain-config>
         <domain includeSubdomains="true">4fee-83-118-108-226.ngrok-free.app</domain>
-        <!-- For development, allow user-added CAs.
-             This often helps with proxies and tunnels like ngrok
-             that might use intermediate certificates not in the default system store. -->
         <trust-anchors>
             <certificates src="system" />
-            <certificates src="user" /> <!-- IMPORTANT FOR NGROK/PROXY DEV -->
+            <certificates src="user" />
         </trust-anchors>
     </domain-config>
+    -->
 
-    <!-- OPTIONAL: Base config for general development if you face issues with other domains.
-         Be careful with allowing cleartextTrafficPermitted="true" broadly in production. -->
+    <!-- Your domain stc.treewalkr.dev should be covered by default system trust anchors
+         if it has a valid SSL certificate from a recognized Certificate Authority.
+         No specific entry is typically needed for it.
+         If you encounter SSL issues specifically with this domain, you might revisit this,
+         but it's unlikely if the SSL certificate is standard (e.g., Let's Encrypt). -->
+
+    <!-- OPTIONAL: Base config can be useful for globally trusting user CAs during dev,
+         but for production, rely on system CAs for recognized domains. -->
     <!--
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

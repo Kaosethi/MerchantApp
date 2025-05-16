@@ -1,58 +1,45 @@
-// AuthManager.kt
-package com.example.merchantapp.data.local // Or com.example.merchantapp.util
+// MODIFIED: app/src/main/java/com/example/merchantapp/data/local/AuthManager.kt
+package com.example.merchantapp.data.local
 
 import android.content.Context
 import android.content.SharedPreferences
 
-// ADDED: Entire new file
 object AuthManager {
-    private const val PREFS_NAME = "MerchantAppAuthPrefs"
-    private const val KEY_IS_LOGGED_IN = "isLoggedIn"
-    private const val KEY_LOGGED_IN_MERCHANT_EMAIL = "loggedInMerchantEmail" // Optional
-    private const val KEY_LAST_LOGIN_TIMESTAMP = "lastLoginTimestamp"
-
-    // Define a timeout period, e.g., 24 hours in milliseconds
-    private const val LOGIN_TIMEOUT_MS = 24 * 60 * 60 * 1000L // 24 hours
+    private const val PREFS_NAME = "auth_prefs"
+    private const val KEY_IS_LOGGED_IN = "is_logged_in" // Can keep if still useful for quick checks
+    private const val KEY_USER_EMAIL = "user_email"     // Can keep for display purposes
+    private const val KEY_AUTH_TOKEN = "auth_token"     // NEW: For storing JWT
 
     private fun getPreferences(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    fun setLoggedIn(context: Context, isLoggedIn: Boolean, email: String? = null) {
+    fun setLoggedIn(context: Context, isLoggedIn: Boolean, email: String? = null, token: String? = null) {
         val editor = getPreferences(context).edit()
         editor.putBoolean(KEY_IS_LOGGED_IN, isLoggedIn)
         if (isLoggedIn) {
-            editor.putLong(KEY_LAST_LOGIN_TIMESTAMP, System.currentTimeMillis())
-            email?.let { editor.putString(KEY_LOGGED_IN_MERCHANT_EMAIL, it) }
+            email?.let { editor.putString(KEY_USER_EMAIL, it) }
+            token?.let { editor.putString(KEY_AUTH_TOKEN, it) } // Store the token
         } else {
-            editor.remove(KEY_LAST_LOGIN_TIMESTAMP)
-            editor.remove(KEY_LOGGED_IN_MERCHANT_EMAIL)
+            editor.remove(KEY_USER_EMAIL)
+            editor.remove(KEY_AUTH_TOKEN) // Clear the token on logout
         }
         editor.apply()
     }
 
     fun isLoggedIn(context: Context): Boolean {
-        val prefs = getPreferences(context)
-        val loggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
-        if (!loggedIn) {
-            return false
-        }
-
-        // Check for timeout
-        val lastLoginTime = prefs.getLong(KEY_LAST_LOGIN_TIMESTAMP, 0L)
-        if (System.currentTimeMillis() - lastLoginTime > LOGIN_TIMEOUT_MS) {
-            // Timeout exceeded, log out user
-            setLoggedIn(context, false) // Clear login state
-            return false
-        }
-        return true
+        return getPreferences(context).getBoolean(KEY_IS_LOGGED_IN, false)
     }
 
-    fun getLoggedInMerchantEmail(context: Context): String? {
-        return getPreferences(context).getString(KEY_LOGGED_IN_MERCHANT_EMAIL, null)
+    fun getUserEmail(context: Context): String? {
+        return getPreferences(context).getString(KEY_USER_EMAIL, null)
     }
 
-    fun clearLoginData(context: Context) {
-        setLoggedIn(context, false) // This already clears all relevant keys
+    fun getAuthToken(context: Context): String? { // NEW: Getter for the token
+        return getPreferences(context).getString(KEY_AUTH_TOKEN, null)
+    }
+
+    fun logout(context: Context) {
+        setLoggedIn(context, false) // This will clear email and token as per setLoggedIn logic
     }
 }

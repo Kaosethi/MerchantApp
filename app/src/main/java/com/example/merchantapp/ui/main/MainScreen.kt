@@ -1,19 +1,30 @@
-// File: app/src/main/java/com/example/merchantapp/ui/main/MainScreen.kt
+// MODIFIED: app/src/main/java/com/example/merchantapp/ui/main/MainScreen.kt
 package com.example.merchantapp.ui.main
 
-// --- Imports ---
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,28 +32,34 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.merchantapp.R
 import com.example.merchantapp.navigation.BottomNavScreens
-import com.example.merchantapp.ui.analytics.AnalyticsDashboardScreen // Assuming this exists
 import com.example.merchantapp.ui.amount.AmountEntryScreen
-// MODIFIED: Ensure the correct TransactionSummaryScreen is imported
+import com.example.merchantapp.ui.analytics.AnalyticsDashboardScreen
 import com.example.merchantapp.ui.summary.TransactionSummaryScreen
 import com.example.merchantapp.ui.theme.MerchantAppTheme
-// --- End Imports ---
+import com.example.merchantapp.viewmodel.MainViewModel
 
+// data class BottomNavItemData remains the same...
 data class BottomNavItemData(
     val label: String,
     val icon: ImageVector,
     val route: String
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun MainScreen(
+    mainViewModel: MainViewModel = viewModel(),
     onLogoutRequest: () -> Unit,
     onNavigateToQrScan: (String) -> Unit
-    // Pass topLevelNavController if MainScreen needs to trigger navigations outside its own bottom nav scope
-    // topLevelNavController: NavHostController
 ) {
     val bottomNavController = rememberNavController()
+    val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(key1 = Unit) {
+        Log.d("MainScreen", "LaunchedEffect: Triggering fetchMerchantProfile")
+        mainViewModel.fetchMerchantProfile()
+    }
 
     val bottomNavItems = listOf(
         BottomNavItemData(stringResource(R.string.bottom_nav_home), Icons.Filled.Home, BottomNavScreens.AMOUNT_ENTRY),
@@ -51,20 +68,38 @@ fun MainScreen(
     )
 
     Scaffold(
+        topBar = {
+            // MODIFIED: Use CenterAlignedTopAppBar for centered title
+            CenterAlignedTopAppBar(
+                title = {
+                    val profile = uiState.merchantProfile
+                    if (uiState.isLoadingProfile) {
+                        Text("Loading Profile...")
+                    } else if (profile != null && profile.businessName != null) {
+                        // MODIFIED: Just the business name
+                        Text(profile.businessName)
+                    } else if (uiState.profileErrorMessage != null) {
+                        Text("Profile Error")
+                    } else {
+                        Text("Merchant Dashboard") // Fallback title
+                    }
+                }
+                // You can add navigationIcon or actions if needed:
+                // navigationIcon = { IconButton(onClick = { /* TODO */ }) { Icon(Icons.Default.Menu, "Menu") } },
+                // actions = { IconButton(onClick = { mainViewModel.refreshMerchantProfile() }) { Icon(Icons.Default.Refresh, "Refresh") } }
+            )
+        },
         bottomBar = {
             BottomNavigationBar(
                 navController = bottomNavController,
                 items = bottomNavItems
             )
         }
-        // You can add a TopAppBar here if MainScreen itself should have one,
-        // independent of the content of the bottom nav tabs.
-        // topBar = { TopAppBar(title = { Text("Merchant App") }) }
     ) { innerPadding ->
         NavHost(
             navController = bottomNavController,
             startDestination = BottomNavScreens.AMOUNT_ENTRY,
-            modifier = Modifier.padding(innerPadding) // Apply padding from Scaffold
+            modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavScreens.AMOUNT_ENTRY) {
                 AmountEntryScreen(
@@ -73,27 +108,23 @@ fun MainScreen(
                 )
             }
             composable(BottomNavScreens.SUMMARY) {
-                // MODIFIED: Call the actual TransactionSummaryScreen
-                // The ViewModel will be provided internally by `viewModel()`
                 TransactionSummaryScreen()
             }
             composable(BottomNavScreens.ANALYTICS) {
-                // TODO: Replace with actual AnalyticsDashboardScreen if it's more complex
-                // For now, assuming it's a simple composable or uses its own ViewModel
                 AnalyticsDashboardScreen()
             }
         }
     }
 }
 
-
+// BottomNavigationBar composable remains the same...
 @Composable
 fun BottomNavigationBar(
     navController: NavHostController,
     items: List<BottomNavItemData>,
     modifier: Modifier = Modifier
 ) {
-    NavigationBar(modifier = modifier) { // Using Material 3 NavigationBar
+    NavigationBar(modifier = modifier) {
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
@@ -105,25 +136,18 @@ fun BottomNavigationBar(
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
-                            // Pop up to the start destination of the graph to
-                            // avoid building up a large stack of destinations
-                            // on the back stack as users select items
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
-                            }
-                            // Avoid multiple copies of the same destination when
-                            // reselecting the same item
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
                             launchSingleTop = true
-                            // Restore state when reselecting a previously selected item
                             restoreState = true
                         }
                     }
                 },
-                alwaysShowLabel = true // Material 3 often shows labels by default, but explicit is fine
+                alwaysShowLabel = true
             )
         }
     }
 }
+
 
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable

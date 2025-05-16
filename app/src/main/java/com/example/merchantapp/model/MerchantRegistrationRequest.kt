@@ -1,10 +1,11 @@
-package com.example.merchantapp.model // Make sure this package matches the folder
+// MODIFIED: app/src/main/java/com/example/merchantapp/model/MerchantRegistrationRequest.kt
+package com.example.merchantapp.model
 
 import com.google.gson.annotations.SerializedName
 
 data class MerchantRegistrationRequest(
-    @SerializedName("name")
-    val name: String,
+    @SerializedName("storeName")
+    val storeName: String,
 
     @SerializedName("email")
     val email: String,
@@ -13,13 +14,14 @@ data class MerchantRegistrationRequest(
     val password: String,
 
     @SerializedName("location")
-    val location: String,
+    val location: String, // Maps to storeAddress in backend
 
-    @SerializedName("category")
-    val category: String,
+    // REMOVED: category property
+    // val category: String,
 
-    @SerializedName("contactEmail")
-    val contactEmail: String? = null // Optional, might be same as login email
-    // Add other fields if your registration form collects more data
-    // that needs to be sent to the backend. E.g., phone.
+    @SerializedName("contactPerson")
+    val contactPerson: String,
+
+    @SerializedName("contactPhoneNumber")
+    val contactPhoneNumber: String
 )

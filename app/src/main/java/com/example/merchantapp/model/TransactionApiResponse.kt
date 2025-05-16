@@ -34,4 +34,8 @@ data class TransactionApiResponse(
 
     @SerializedName("declineReason") // String from API or null
     val declineReason: String?
+
+    // You had 'description' in my placeholder, if your API sends it, add it here:
+    // @SerializedName("description")
+    // val description: String?
 )

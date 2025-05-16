@@ -1,11 +1,12 @@
+// File path: app/src/main/java/com/example/merchantapp/model/LoginRequest.kt
 package com.example.merchantapp.model
 
 import com.google.gson.annotations.SerializedName
 
 data class LoginRequest(
-    @SerializedName("email") // Or "merchantId" or "username" depending on your API
+    @SerializedName("email")
     val email: String,
 
-    @SerializedName("password") // Or "pin"
+    @SerializedName("password")
     val password: String
 )

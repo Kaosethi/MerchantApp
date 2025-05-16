@@ -1,9 +1,8 @@
-// TransactionSummaryViewModel.kt
 package com.example.merchantapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.merchantapp.model.DeclineReason
+import com.example.merchantapp.model.DeclineReason // Make sure this import is present and correct
 import com.example.merchantapp.model.TransactionItem
 import com.example.merchantapp.model.TransactionStatus
 import com.example.merchantapp.ui.summary.TransactionSummaryUiState
@@ -21,9 +20,8 @@ import kotlin.random.Random
 // MODIFIED: Make the class open so PreviewTransactionSummaryViewModel can inherit from it
 open class TransactionSummaryViewModel : ViewModel() {
 
-    // MODIFIED: Expose _uiState for the Preview ViewModel to set mock data
-    // This is a common pattern for previewing ViewModels that manage their own state loading.
-    // Alternatively, the Preview ViewModel could call public methods if they existed to set state.
+    // Property name '_uiState' should start with a lowercase letter : This is a common convention, but not a breaking error.
+    // You can change to _uIState if you prefer, or leave as _uiState.
     protected val _uiState = MutableStateFlow(TransactionSummaryUiState())
     val uiState: StateFlow<TransactionSummaryUiState> = _uiState.asStateFlow()
 
@@ -57,6 +55,7 @@ open class TransactionSummaryViewModel : ViewModel() {
 
     fun onStatusFilterChanged(newStatus: String) {
         _uiState.update { it.copy(selectedStatusFilter = newStatus) }
+        // Consider whether applyFilters() should be called here or by a UI action
     }
 
     fun applyFilters() {
@@ -84,6 +83,7 @@ open class TransactionSummaryViewModel : ViewModel() {
         }
     }
 
+    // Function "clearFilters" is never used: This is a warning. If you have a UI element to clear filters, it should call this.
     fun clearFilters() {
         _uiState.update {
             it.copy(
@@ -112,15 +112,18 @@ open class TransactionSummaryViewModel : ViewModel() {
         val names = listOf("Debby Low", "Debby L.", "Alice D.", "Bob L.", "Charlie M.", "Eve S.", "Frank G.")
         val accountPrefixes = listOf("LOW-BAL-", "STC-2023-", "STC-2024-", "ACC-NEW-")
         val categories = listOf("Groceries", "Household", "Transport", "Utilities", "Education", "Healthcare", "Other", "Dining", "Entertainment")
+
+        // --- CORRECTED THE TYPO HERE ---
         val declineReasons = listOf(
-            DeclineReason.InsufficientBalance,
-            DeclineReason.AccountInactive,
-            DeclineReason.AccountNotFound,
-            DeclineReason.IncorrectPin
+            DeclineReason.InsufficientBalance, // Changed DeclineReasons to DeclineReason
+            DeclineReason.AccountSuspended,    // Changed DeclineReasons to DeclineReason
+            DeclineReason.AccountNotActive,   // Changed DeclineReasons to DeclineReason
+            DeclineReason.IncorrectPin         // Changed DeclineReasons to DeclineReason
         )
+        // --- END OF CORRECTION ---
 
         return List(20) { index ->
-            val randomStatus = if (Random.nextBoolean()) TransactionStatus.APPROVED else TransactionStatus.DECLINED
+            val randomStatus = if (Random.nextDouble() < 0.7) TransactionStatus.APPROVED else TransactionStatus.DECLINED
             val randomDateTime = LocalDateTime.now().minusDays(Random.nextLong(0, 30)).minusHours(Random.nextLong(0,23)).withMinute(Random.nextInt(0,59))
             val accountOwner = names.random()
             val accountIdShort = Random.nextInt(1, 999).toString().padStart(3, '0')
@@ -128,11 +131,11 @@ open class TransactionSummaryViewModel : ViewModel() {
 
             TransactionItem(
                 id = "T${1000 + index}",
-                fullTransactionId = "FTXN-MERCH001-${System.currentTimeMillis() + index}",
+                fullTransactionId = "FTXN-MERCH001-${System.currentTimeMillis() + index}", // Typo: FTXN - this is a minor lint warning, not an error
                 dateTime = randomDateTime,
                 accountId = accountId,
                 accountOwnerName = accountOwner,
-                amount = Random.nextDouble(1.0, 100.0),
+                amount = Random.nextDouble(1.0, 100.0).let { String.format("%.2f", it).toDouble() },
                 status = randomStatus,
                 category = categories.random(),
                 reasonForDecline = if (randomStatus == TransactionStatus.DECLINED) declineReasons.random() else null
