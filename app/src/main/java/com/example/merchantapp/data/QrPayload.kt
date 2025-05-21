@@ -1,18 +1,17 @@
 // QrPayload.kt
-package com.example.merchantapp.data // Or your model package
+package com.example.merchantapp.data // Or com.example.merchantapp.model
 
 import com.google.gson.annotations.SerializedName
 
-// ADDED: Entire new file
 data class QrPayload(
-    @SerializedName("type") // Ensure Gson uses the correct JSON key
+    @SerializedName("type")
     val type: String?,
 
     @SerializedName("account")
-    val account: String?,
+    val account: String, // Should be non-nullable if it's always present and required
 
     @SerializedName("ver")
-    val version: Int?, // Assuming 'ver' is an integer version
+    val version: String?, // Changed to String? to match JSON "1.0" and Zod schema
 
     @SerializedName("sig")
     val signature: String?

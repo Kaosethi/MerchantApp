@@ -1,7 +1,8 @@
-// PinEntryScreen.kt
 package com.example.merchantapp.ui.pinentry
 
+import android.app.Application
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -13,9 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.foundation.border // Keep this import
-import androidx.lifecycle.SavedStateHandle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -23,30 +23,57 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.merchantapp.ui.theme.MerchantAppTheme
-import com.example.merchantapp.viewmodel.PinEntryViewModel
+import com.example.merchantapp.viewmodel.PinEntryViewModel // Ensure PinEntryViewModel is correctly imported
 import java.text.NumberFormat
 import java.util.Locale
+
+// ViewModel Factory for AndroidViewModel if not using Hilt
+class PinEntryViewModelFactory(private val application: Application, private val savedStateHandle: SavedStateHandle) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(PinEntryViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return PinEntryViewModel(application, savedStateHandle) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class for PinEntryViewModelFactory")
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PinEntryScreen(
-    viewModel: PinEntryViewModel = viewModel(),
+    // Use this if you need to pass SavedStateHandle to the factory for arguments from navigation
+    // viewModel: PinEntryViewModel = viewModel(factory = PinEntryViewModelFactory(LocalContext.current.applicationContext as Application, LocalSavedStateRegistryOwner.current.savedStateRegistry.consumeRestoredStateForKey("pinEntryArgs")?.let { SavedStateHandle.createHandle(it, null) } ?: SavedStateHandle())),
+    // Simpler instantiation if SavedStateHandle is automatically provided by compose-navigation to viewModels
+    viewModel: PinEntryViewModel = viewModel(), // Standard way if SavedStateHandle is implicitly passed by navigation-compose
     onNavigateBack: () -> Unit,
-    onPinVerifiedNavigateToSuccess: (amount: String, beneficiaryId: String, beneficiaryName: String, category: String) -> Unit
+    // <<< MODIFIED LAMBDA SIGNATURE HERE >>>
+    onPinVerifiedNavigateToSuccess: (
+        amount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        category: String,
+        transactionId: String // Added transactionId
+    ) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
 
-    LaunchedEffect(uiState.isPinVerifiedSuccessfully) {
-        if (uiState.isPinVerifiedSuccessfully) {
+    // Effect to handle navigation when PIN verification is successful
+    LaunchedEffect(uiState.isPinVerifiedSuccessfully, uiState.transactionIdForSuccess) { // Observe transactionIdForSuccess too
+        if (uiState.isPinVerifiedSuccessfully && uiState.transactionIdForSuccess != null) {
             focusManager.clearFocus()
             onPinVerifiedNavigateToSuccess(
                 uiState.amount,
                 uiState.beneficiaryId,
                 uiState.beneficiaryName,
-                uiState.category
+                uiState.category,
+                uiState.transactionIdForSuccess!! // Pass the transactionId (non-null due to check)
             )
             viewModel.onSuccessfulNavigationConsumed()
         }
@@ -55,17 +82,16 @@ fun PinEntryScreen(
     val formattedAmount = remember(uiState.amount) {
         try {
             val amountValue = uiState.amount.toDoubleOrNull() ?: 0.0
-            // MODIFIED: Changed Locale to th_TH for Thai Baht
             NumberFormat.getCurrencyInstance(Locale("th", "TH")).format(amountValue)
         } catch (e: Exception) {
-            "Error" // Fallback for formatting error
+            "Error"
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Enter PIN") },
+                title = { Text("Enter Beneficiary PIN") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
@@ -83,20 +109,24 @@ fun PinEntryScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Text("Confirm Transaction", style = MaterialTheme.typography.headlineSmall)
+            Text("Confirm Transaction Details", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
 
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     DetailRow("Amount:", formattedAmount)
-                    DetailRow("To:", uiState.beneficiaryName)
-                    DetailRow("Account ID:", uiState.beneficiaryId)
+                    DetailRow("To (Beneficiary):", uiState.beneficiaryName)
+                    DetailRow("Beneficiary Account ID:", uiState.beneficiaryId)
                     DetailRow("Category:", uiState.category)
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Enter your 4-digit PIN to authorize this transaction.", textAlign = TextAlign.Center)
+            Text(
+                "Enter the beneficiary's 4-digit PIN to authorize this payment from their account.",
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium
+            )
 
             PinInputFields(
                 pinValue = uiState.pinValue,
@@ -118,25 +148,18 @@ fun PinEntryScreen(
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-
-            if (uiState.isLocked) {
-                Text(
-                    // Consider updating this message if PinEntryViewModel's locked message is more specific
-                    "PIN entry locked. Please contact support or try again later.",
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
         }
     }
 }
 
 @Composable
 fun DetailRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(0.4f))
-        Text(value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(0.6f))
+        Text(value, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(0.6f))
     }
 }
 
@@ -148,28 +171,22 @@ fun PinInputFields(
     enabled: Boolean = true
 ) {
     val focusRequester = remember { FocusRequester() }
-    var textFieldValue by remember {
+    var textFieldValue by remember(pinValue) {
         mutableStateOf(TextFieldValue(pinValue, TextRange(pinValue.length)))
     }
 
-    LaunchedEffect(pinValue) {
-        if (textFieldValue.text != pinValue) {
-            textFieldValue = TextFieldValue(pinValue, TextRange(pinValue.length))
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        if (enabled) {
+    LaunchedEffect(enabled) {
+        if (enabled && pinValue.isEmpty()) {
             focusRequester.requestFocus()
         }
     }
 
     BasicTextField(
         value = textFieldValue,
-        onValueChange = {
-            if (it.text.length <= pinLength && it.text.all { char -> char.isDigit() }) {
-                textFieldValue = it
-                onPinChange(it.text)
+        onValueChange = { newTextFieldValue ->
+            if (newTextFieldValue.text.length <= pinLength && newTextFieldValue.text.all { char -> char.isDigit() }) {
+                textFieldValue = newTextFieldValue
+                onPinChange(newTextFieldValue.text)
             }
         },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -184,16 +201,13 @@ fun PinInputFields(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 repeat(pinLength) { index ->
-                    val char = when {
-                        index < textFieldValue.text.length -> textFieldValue.text[index].toString()
-                        else -> ""
-                    }
+                    val char = textFieldValue.text.getOrNull(index)
                     PinDigitBox(
-                        digit = char,
-                        isFocused = index == textFieldValue.text.length && enabled
+                        digit = char?.toString() ?: "",
+                        isFocused = index == textFieldValue.text.length && enabled && textFieldValue.text.length < pinLength
                     )
                     if (index < pinLength - 1) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                     }
                 }
             }
@@ -205,7 +219,7 @@ fun PinInputFields(
 fun PinDigitBox(digit: String, isFocused: Boolean) {
     Box(
         modifier = Modifier
-            .size(50.dp)
+            .size(width = 50.dp, height = 60.dp)
             .border(
                 BorderStroke(
                     width = if (isFocused) 2.dp else 1.dp,
@@ -216,54 +230,38 @@ fun PinDigitBox(digit: String, isFocused: Boolean) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = digit.ifEmpty { "" },
+            text = if (digit.isNotEmpty()) "●" else "",
             style = MaterialTheme.typography.headlineMedium,
-            fontSize = 24.sp,
+            fontSize = 28.sp,
             textAlign = TextAlign.Center
         )
     }
 }
 
-@Preview(showBackground = true, name = "PIN Entry Screen - Default")
-@Composable
-fun PinEntryScreenPreview() {
-    MerchantAppTheme {
-        PinEntryScreen(
-            viewModel = PinEntryViewModel(SavedStateHandle(mapOf(
-                "amount" to "1230.45", // Example THB amount
-                "beneficiaryId" to "BEN-001",
-                "beneficiaryName" to "John Doe",
-                "category" to "Groceries"
-            ))),
-            onNavigateBack = {},
-            onPinVerifiedNavigateToSuccess = { _, _, _, _ -> }
-        )
-    }
+
+// --- PREVIEWS ---
+// Helper function for creating a SavedStateHandle for Previews if needed
+fun createPreviewSavedStateHandle(initialState: Map<String, Any?> = emptyMap()): SavedStateHandle {
+    return SavedStateHandle(initialState)
 }
 
-@Preview(showBackground = true, name = "PIN Entry Screen - Error")
+@Preview(showBackground = true, name = "PIN Entry Screen - Default")
 @Composable
-fun PinEntryScreenErrorPreview() {
-    val viewModel = PinEntryViewModel(SavedStateHandle(mapOf(
-        "amount" to "500.00", // Example THB amount
-        "beneficiaryId" to "BEN-002",
-        "beneficiaryName" to "Jane Smith",
-        "category" to "Utilities"
-    )))
-    val errorState = PinEntryUiState(
-        amount = "500.00",
-        beneficiaryId = "BEN-002",
-        beneficiaryName = "Jane Smith",
-        category = "Utilities",
-        pinValue = "111",
-        errorMessage = "Incorrect PIN. 6 attempts remaining.", // Updated for 7 attempts
-        attemptsRemaining = 6 // Updated for 7 attempts
-    )
+private fun PinEntryScreenPreview() {
     MerchantAppTheme {
+        val dummyApplication = LocalContext.current.applicationContext as Application
+        val dummySavedStateHandle = createPreviewSavedStateHandle(mapOf(
+            "amount" to "123.45",
+            "beneficiaryId" to "BEN-ID-001",
+            "beneficiaryName" to "Test Beneficiary",
+            "category" to "Groceries"
+        ))
+        // Use the factory for preview consistency if ViewModel takes SavedStateHandle
         PinEntryScreen(
-            viewModel = viewModel,
+            viewModel = PinEntryViewModel(dummyApplication, dummySavedStateHandle),
             onNavigateBack = {},
-            onPinVerifiedNavigateToSuccess = { _, _, _, _ -> }
+            // Preview lambda now matches the 5 parameters
+            onPinVerifiedNavigateToSuccess = { _, _, _, _, _ -> }
         )
     }
 }

@@ -1,44 +1,44 @@
-// QrScanViewModel.kt
 package com.example.merchantapp.viewmodel
 
+import android.app.Application
+import android.util.Base64
 import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.merchantapp.data.QrPayload // ADDED: Import QrPayload
-import com.google.gson.Gson // ADDED: Import Gson
-import com.google.gson.JsonSyntaxException // ADDED: Import for parsing errors
-import kotlinx.coroutines.delay // ADDED: For mocking delay
+import com.example.merchantapp.data.QrPayload
+import com.example.merchantapp.model.ValidatedBeneficiary // <<< IMPORT FOR THE TOP-LEVEL MODEL CLASS
+import com.example.merchantapp.network.ApiService
+import com.example.merchantapp.network.RetrofitInstance
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.nio.charset.StandardCharsets
 
-// ADDED: Data class for successful validation result
-data class ValidatedBeneficiary(
-    val id: String,
-    val name: String
-)
-
+// QrScanUiState now uses the imported ValidatedBeneficiary
 data class QrScanUiState(
     val isLoading: Boolean = false,
-    val amount: String = "0.00",
-    // REMOVED: scannedQrCodeValue - No longer needed directly in UI state for nav trigger
-    // REMOVED: isQrCodeDetected - Replaced by validationSuccess/validatedBeneficiary
+    val amount: String = "0.00", // Amount for the transaction, passed to this screen
     val errorMessage: String? = null,
-    // ADDED: State for validation result
     val validationSuccess: Boolean = false,
-    val validatedBeneficiary: ValidatedBeneficiary? = null
+    val validatedBeneficiary: ValidatedBeneficiary? = null // Holds data on successful validation using the imported model
 )
 
 class QrScanViewModel(
+    application: Application,
     savedStateHandle: SavedStateHandle
-) : ViewModel() {
+) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(QrScanUiState())
     val uiState: StateFlow<QrScanUiState> = _uiState.asStateFlow()
-    private val gson = Gson() // Create Gson instance
+
+    private val gson = Gson()
+    private val apiService: ApiService = RetrofitInstance.getApiService(application.applicationContext)
 
     init {
         val amountArg = savedStateHandle.get<String>("amount") ?: "0.00"
@@ -46,95 +46,106 @@ class QrScanViewModel(
         Log.d("QrScanViewModel", "Initialized with amount: $amountArg")
     }
 
-    // Called by the QrCodeAnalyzer when a QR code is detected
-    fun onQrCodeScanned(rawValue: String?) {
-        if (rawValue.isNullOrBlank()) {
-            Log.w("QrScanViewModel", "QR Scan returned null or blank value.")
-            _uiState.update { it.copy(errorMessage = "Invalid QR Code scanned.", isLoading = false) }
-            return
-        }
-        // Don't immediately navigate, start validation instead
-        validateAndFetchBeneficiary(rawValue)
-    }
-
-    // --- MODIFIED: Validation and Mock Fetch Logic ---
-    private fun validateAndFetchBeneficiary(qrJsonString: String) {
-        // Prevent multiple validation calls if already processing or successful
-        if (_uiState.value.isLoading || _uiState.value.validationSuccess) {
-            Log.d("QrScanViewModel", "Validation already in progress or successful, ignoring new scan.")
+    fun onQrCodeScanned(base64EncodedQrValue: String?) {
+        if (base64EncodedQrValue.isNullOrBlank()) {
+            Log.w("QrScanViewModel", "QR Scan returned null or blank (Base64) value.")
+            _uiState.update { it.copy(isLoading = false, errorMessage = "Invalid QR Code scanned.") }
             return
         }
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, validationSuccess = false, validatedBeneficiary = null) }
 
         viewModelScope.launch {
-            delay(1000) // Simulate network delay for validation API call
-
             try {
-                // 1. Parse JSON
-                val payload = gson.fromJson(qrJsonString, QrPayload::class.java)
+                Log.d("QrScanViewModel", "Received Base64 Encoded QR: $base64EncodedQrValue")
+                val decodedBytes = Base64.decode(base64EncodedQrValue, Base64.DEFAULT)
+                val decodedQrTokenJson = String(decodedBytes, StandardCharsets.UTF_8)
+                Log.d("QrScanViewModel", "Decoded QR Token (JSON): $decodedQrTokenJson")
 
-                // 2. Basic Format Validation
-                if (payload == null || payload.type.isNullOrBlank() || payload.account.isNullOrBlank() || payload.version == null || payload.signature.isNullOrBlank()) {
-                    Log.e("QrScanViewModel", "[MOCK] QR Payload format validation failed. Payload: $payload")
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "Invalid QR Code format.") }
+                val payload = gson.fromJson(decodedQrTokenJson, QrPayload::class.java)
+
+                if (payload == null || payload.account.isBlank()) {
+                    Log.e("QrScanViewModel", "Failed to parse QR JSON into QrPayload or account ID is missing/blank.")
+                    _uiState.update { it.copy(isLoading = false, errorMessage = "Invalid QR data structure.") }
                     return@launch
                 }
 
-                // Optional: Check payload.type if needed
-                // if (payload.type != "EXPECTED_TYPE") { ... error ... }
+                validateWithBackend(payload)
 
-                // 3. Mock Signature Validation & Beneficiary Fetch
-                // In a real app, send payload to backend here. Backend validates signature & fetches details.
-                // We simulate success only if account matches the hardcoded one for now.
-                val mockValidAccountId = "BEN-SIM-001" // Corresponds to hardcoded token used before
-                val hardcodedTestTokenAccount = "TEST-TOKEN-12345" // Previous placeholder
-
-                // SIMULATE: Check if the ACCOUNT field corresponds to our test token/account
-                // This is NOT real signature validation.
-                if (payload.account == hardcodedTestTokenAccount || payload.account == mockValidAccountId) {
-                    // MOCK SUCCESS: Return predefined beneficiary details
-                    val beneficiary = ValidatedBeneficiary(id = mockValidAccountId, name = "Simulated User (Validated)") // Use validated details
-                    Log.i("QrScanViewModel", "[MOCK] QR Validation Success. Beneficiary: $beneficiary")
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            validatedBeneficiary = beneficiary,
-                            validationSuccess = true, // Set flag for navigation trigger
-                            errorMessage = null
-                        )
-                    }
-                } else {
-                    // MOCK FAILURE: Account doesn't match our test case OR Simulate backend rejecting signature/account
-                    Log.e("QrScanViewModel", "[MOCK] QR Validation Failed. Account ID '${payload.account}' not recognized.")
-                    _uiState.update { it.copy(isLoading = false, errorMessage = "QR Code not recognized or invalid.") }
-                }
-
+            } catch (e: IllegalArgumentException) {
+                Log.e("QrScanViewModel", "Base64 decoding failed.", e)
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Invalid QR Code encoding.") }
             } catch (e: JsonSyntaxException) {
-                Log.e("QrScanViewModel", "[MOCK] QR JSON Parsing failed.", e)
+                Log.e("QrScanViewModel", "JSON parsing to QrPayload failed.", e)
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Invalid QR Code data format.") }
             } catch (e: Exception) {
-                Log.e("QrScanViewModel", "[MOCK] Error during QR validation.", e)
+                Log.e("QrScanViewModel", "Error processing scanned QR value before API call.", e)
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Error processing QR Code: ${e.message}") }
             }
         }
     }
 
-    // Called by the UI after navigation has been triggered based on validationSuccess
+    private fun validateWithBackend(payload: QrPayload) {
+        viewModelScope.launch {
+            try {
+                Log.i("QrScanViewModel", "Attempting to validate with backend. Account: ${payload.account}")
+                val response = apiService.validateQrToken(payload)
+
+                if (response.isSuccessful) {
+                    // Explicitly type beneficiaryDetails with the imported ValidatedBeneficiary
+                    val beneficiaryDetails: ValidatedBeneficiary? = response.body()
+                    if (beneficiaryDetails != null) {
+                        Log.i("QrScanViewModel", "Backend Validation Success. Beneficiary ID: ${beneficiaryDetails.id}, Name: ${beneficiaryDetails.name}")
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                validatedBeneficiary = beneficiaryDetails, // Uses the imported model instance
+                                validationSuccess = true,
+                                errorMessage = null
+                            )
+                        }
+                    } else {
+                        Log.e("QrScanViewModel", "Backend validation successful but response body was null.")
+                        _uiState.update { it.copy(isLoading = false, errorMessage = "Beneficiary data not found from server.") }
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    Log.e("QrScanViewModel", "Backend Validation Failed. Code: ${response.code()}, Body: $errorBody")
+                    var apiErrorMessage = "Server error (Code: ${response.code()}). Please try again."
+                    if (!errorBody.isNullOrBlank()) {
+                        try {
+                            val typeToken = object : TypeToken<Map<String, Any>>() {}.type
+                            val errorResponseMap: Map<String, Any> = gson.fromJson(errorBody, typeToken)
+                            (errorResponseMap["error"] as? String)?.let { backendMsg ->
+                                apiErrorMessage = backendMsg
+                            }
+                        } catch (e: JsonSyntaxException) {
+                            Log.w("QrScanViewModel", "Could not parse JSON from error body: $errorBody", e)
+                        } catch (e: Exception) {
+                            Log.e("QrScanViewModel", "Unexpected error parsing backend error response: $errorBody", e)
+                        }
+                    }
+                    _uiState.update { it.copy(isLoading = false, errorMessage = apiErrorMessage) }
+                }
+            } catch (e: Exception) {
+                Log.e("QrScanViewModel", "Network error during backend validation.", e)
+                _uiState.update { it.copy(isLoading = false, errorMessage = "Network error. Please check connection and try again.") }
+            }
+        }
+    }
+
     fun onNavigationHandled() {
-        // Reset state related to the completed scan/validation attempt
         _uiState.update {
             it.copy(
                 validationSuccess = false,
                 validatedBeneficiary = null,
-                isLoading = false, // Ensure loading is off
-                errorMessage = null // Clear any previous errors
+                isLoading = false,
+                errorMessage = null
             )
         }
-        Log.d("QrScanViewModel", "Navigation handled, resetting validation state.")
+        Log.d("QrScanViewModel", "Navigation handled, validation state reset.")
     }
 
-    // Kept for explicit error setting if needed (e.g., Camera init error)
     fun setErrorMessage(message: String?) {
         _uiState.update { it.copy(errorMessage = message, isLoading = false) }
     }

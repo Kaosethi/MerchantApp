@@ -7,7 +7,7 @@ import java.time.LocalDate
 // ADDED: Entire new file
 
 data class TransactionSummaryUiState(
-    val isLoading: Boolean = true,
+    val isLoading: Boolean = false,
     val allTransactions: List<TransactionItem> = emptyList(),
     val filteredTransactions: List<TransactionItem> = emptyList(),
 
