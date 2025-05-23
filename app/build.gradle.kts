@@ -104,6 +104,9 @@ dependencies {
     // Core library desugaring dependency
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4") // Check for latest stable version
 
+    implementation("com.valentinilk.shimmer:compose-shimmer:1.2.0")
+
+
     // Test Dependencies
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -1,4 +1,3 @@
-// File: app/src/main/java/com/example/merchantapp/viewmodel/TransactionHistoryViewModel.kt
 package com.example.merchantapp.viewmodel
 
 import android.app.Application
@@ -22,7 +21,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 
-// Mapper function with improved null safety for date parsing
+// ApiTransactionItem.toUiTransactionItem() function remains the same
 fun ApiTransactionItem.toUiTransactionItem(): TransactionItem? {
     val eventTs = this.eventTimestamp
     val recordTs = this.recordCreatedAt
@@ -32,14 +31,13 @@ fun ApiTransactionItem.toUiTransactionItem(): TransactionItem? {
             LocalDateTime.parse(eventTs, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
         } catch (e: DateTimeParseException) {
             Log.e("TransactionMapper", "Failed to parse eventTimestamp: $eventTs for API leg ID: ${this.legId}", e)
-            null // Indicate parsing failure
+            null
         }
     } else {
         Log.w("TransactionMapper", "eventTimestamp is NULL for API leg ID: ${this.legId}")
-        null // Timestamp was null
+        null
     }
 
-    // Fallback to recordCreatedAt ONLY if eventTimestamp was null OR its parsing failed
     val finalDateTime: LocalDateTime = parsedEventDateTime ?: run {
         if (recordTs != null) {
             try {
@@ -47,11 +45,11 @@ fun ApiTransactionItem.toUiTransactionItem(): TransactionItem? {
                 LocalDateTime.parse(recordTs, DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             } catch (e2: DateTimeParseException) {
                 Log.e("TransactionMapper", "Also failed to parse recordCreatedAt: $recordTs for API leg ID: ${this.legId}. Returning null for mapping.", e2)
-                return null // Both attempts failed or critical timestamp missing
+                return null
             }
         } else {
             Log.e("TransactionMapper", "Both eventTimestamp and recordCreatedAt are NULL for API leg ID: ${this.legId}. Returning null for mapping.")
-            return null // Both timestamps are null
+            return null
         }
     }
 
@@ -62,14 +60,14 @@ fun ApiTransactionItem.toUiTransactionItem(): TransactionItem? {
         return null
     }
 
-    val uiStatus: TransactionStatus = when (this.status.uppercase()) { // Use uppercase for robustness
+    val uiStatus: TransactionStatus = when (this.status.uppercase()) {
         "COMPLETED" -> TransactionStatus.APPROVED
         "PENDING" -> TransactionStatus.PENDING
         "DECLINED" -> TransactionStatus.DECLINED
         "FAILED" -> TransactionStatus.FAILED
         else -> {
             Log.w("TransactionMapper", "Unknown transaction status from API: '${this.status}' for API leg ID: ${this.legId}")
-            TransactionStatus.FAILED // Default or map to an 'UNKNOWN' status if you have one
+            TransactionStatus.FAILED
         }
     }
 
@@ -107,7 +105,6 @@ open class TransactionHistoryViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    // Ensure TransactionSummaryUiState has isLoading = false by default
     protected val _transactionUiState = MutableStateFlow(TransactionSummaryUiState())
     val uiState: StateFlow<TransactionSummaryUiState> = _transactionUiState.asStateFlow()
 
@@ -115,57 +112,64 @@ open class TransactionHistoryViewModel(
 
     private var currentPage = 1
     private var totalPages = 1
-    private var currentStatusFilter: String = "Completed" // Default status for API calls
 
     init {
-        Log.d("TransactionHistoryVM", "ViewModel initialized. Initial isLoading state: ${_transactionUiState.value.isLoading}")
-        currentStatusFilter = _transactionUiState.value.selectedStatusFilter // This usually defaults to "All" or "Completed" from UiState
-        val initialApiStatusFilter = if (currentStatusFilter.equals("All", ignoreCase = true)) null else currentStatusFilter
-        fetchTransactionPage(page = 1, statusFilter = initialApiStatusFilter)
+        Log.d("TransactionHistoryVM", "ViewModel initialized. Initial UI filters: Status='${_transactionUiState.value.selectedStatusFilter}', StartDate='${_transactionUiState.value.selectedStartDate}', EndDate='${_transactionUiState.value.selectedEndDate}'")
+        applyFiltersAndFetch()
     }
 
     fun loadMoreTransactions() {
         Log.d("TransactionHistoryVM", "loadMoreTransactions called. Current page: $currentPage, Total pages: $totalPages, isLoading: ${_transactionUiState.value.isLoading}")
         if (currentPage < totalPages && !_transactionUiState.value.isLoading) {
             Log.d("TransactionHistoryVM", "Proceeding to load more. Next page: ${currentPage + 1}")
-            val statusToSend = if (currentStatusFilter.equals("All", ignoreCase = true)) null else currentStatusFilter
-            fetchTransactionPage(page = currentPage + 1, statusFilter = statusToSend)
-        } else {
-            val reason = when {
-                _transactionUiState.value.isLoading -> "already loading"
-                currentPage >= totalPages -> "reached last page (current: $currentPage, total: $totalPages)"
-                else -> "condition not met (currentPage: $currentPage < totalPages: $totalPages is ${currentPage < totalPages}, !isLoading is ${!_transactionUiState.value.isLoading})"
-            }
-            Log.d("TransactionHistoryVM", "Cannot load more because $reason.")
-        }
+            val uiSelectedStatus = _transactionUiState.value.selectedStatusFilter
+            val statusToSendToApi = mapUiStatusToApiParam(uiSelectedStatus)
+            // Date range is not sent to API in this version, applied locally
+            fetchTransactionPage(page = currentPage + 1, statusFilter = statusToSendToApi)
+        } else { /* ... logging ... */ }
     }
 
-    private fun fetchTransactionPage(page: Int, statusFilter: String?, isRefresh: Boolean = false) {
-        Log.d("TransactionHistoryVM", "Entering fetchTransactionPage. Current isLoading: ${_transactionUiState.value.isLoading}, isRefresh: $isRefresh, Page: $page, API Status Filter: '$statusFilter'")
+    fun clearAllFiltersAndFetch() {
+        _transactionUiState.value = _transactionUiState.value.copy(
+            selectedStartDate = null,
+            selectedEndDate = null,
+            selectedStatusFilter = "All"
+        )
+        refreshTransactions()
+    }
+
+
+    private fun fetchTransactionPage(
+        page: Int,
+        statusFilter: String?,
+        // startDateFilter: String? = null, // Add if API supports date range
+        // endDateFilter: String? = null,   // Add if API supports date range
+        isRefresh: Boolean = false
+    ) {
+        Log.d("TransactionHistoryVM", "Entering fetchTransactionPage. isRefresh: $isRefresh, Page: $page, API Status Filter: '$statusFilter'")
         if (_transactionUiState.value.isLoading && !isRefresh) {
             Log.d("TransactionHistoryVM", "Fetch ignored: Already loading and not a refresh. Page: $page")
             return
         }
 
         viewModelScope.launch {
-            val initialErrorMessage = if (isRefresh) null else _transactionUiState.value.errorMessage
-            _transactionUiState.update { it.copy(isLoading = true, errorMessage = initialErrorMessage) }
-            Log.d("TransactionHistoryVM", "Set isLoading=true. Fetching page: $page, API Status Filter: '$statusFilter', IsRefresh: $isRefresh")
+            val errorMessageToPreserve = if (isRefresh) null else _transactionUiState.value.errorMessage
+            _transactionUiState.update { it.copy(isLoading = true, errorMessage = errorMessageToPreserve) }
+            Log.d("TransactionHistoryVM", "Set isLoading=true. Fetching page: $page, API Status Filter: '$statusFilter'")
 
             try {
-                // Assuming ApiService interface has @Header("Authorization") for token or Interceptor handles it
                 val response = apiService.getTransactionHistory(
                     page = page,
                     limit = 20,
                     status = statusFilter
+                    // startDate = startDateFilter, // Pass to API if supported
+                    // endDate = endDateFilter    // Pass to API if supported
                 )
 
                 if (response.isSuccessful && response.body() != null) {
                     val apiResponse = response.body()!!
-                    Log.d("TransactionHistoryVM", "API Response for page $page successful. Mapping ${apiResponse.data.size} items.")
                     val newUiTransactions = apiResponse.data.mapNotNull { it.toUiTransactionItem() }
                     val paginationDetails = apiResponse.pagination
-
                     totalPages = paginationDetails.totalPages
                     currentPage = paginationDetails.page
 
@@ -175,96 +179,153 @@ open class TransactionHistoryViewModel(
                         } else {
                             (currentState.allTransactions + newUiTransactions).distinctBy { it.fullTransactionId }
                         }
+                        val locallyFilteredTransactions = applyLocalFilters(
+                            combinedTransactions,
+                            currentState.selectedStartDate, // Pass startDate
+                            currentState.selectedEndDate,   // Pass endDate
+                            currentState.selectedStatusFilter
+                        )
                         currentState.copy(
                             isLoading = false,
                             allTransactions = combinedTransactions,
-                            filteredTransactions = applyLocalFilters(combinedTransactions, currentState.selectedDate, currentState.selectedStatusFilter),
+                            filteredTransactions = locallyFilteredTransactions,
                             errorMessage = null
                         )
                     }
-                    Log.d("TransactionHistoryVM", "Page $page fetched. ${newUiTransactions.size} new UI items. Total allTransactions: ${_transactionUiState.value.allTransactions.size}. API Page: $currentPage, API Total Pages: $totalPages. Set isLoading=false.")
-                } else {
+                } else { /* ... error handling ... */
                     val errorBody = response.errorBody()?.string() ?: "No error body"
-                    val errorMsg = "Error fetching transactions: ${response.message()} (Code: ${response.code()})"
-                    Log.e("TransactionHistoryVM", "API Error for page $page: ${response.code()} - $errorBody. Message: $errorMsg")
+                    val errorMsg = "Failed to load transactions. Server error. (Code: ${response.code()})"
+                    Log.e("TransactionHistoryVM", "API Error for page $page: ${response.code()} - $errorBody. Full Message: ${response.message()}")
                     _transactionUiState.update { it.copy(isLoading = false, errorMessage = errorMsg) }
-                    Log.d("TransactionHistoryVM", "API Error. Set isLoading=false.")
                 }
-            } catch (e: Exception) {
-                val errorMsg = "Network error or mapping error: ${e.message ?: "Unknown exception"}"
-                Log.e("TransactionHistoryVM", "Exception for page $page: ${e.message}", e) // Log full exception
+            } catch (e: Exception) { /* ... error handling ... */
+                val errorMsg = "Could not connect or an error occurred. Please try again."
+                Log.e("TransactionHistoryVM", "Exception for page $page: ${e.message}", e)
                 _transactionUiState.update { it.copy(isLoading = false, errorMessage = errorMsg) }
-                Log.d("TransactionHistoryVM", "Exception caught. Set isLoading=false.")
             }
         }
     }
 
+    private fun mapUiStatusToApiParam(uiStatusFilter: String): String? {
+        // ... (remains the same as your last version) ...
+        return when (uiStatusFilter.lowercase()) {
+            "all" -> null
+            "approved" -> "COMPLETED"
+            "pending" -> "PENDING"
+            "declined" -> "FAILED"
+            "failed" -> "FAILED"
+            else -> {
+                Log.w("TransactionHistoryVM", "Unknown UI status filter for API mapping: '$uiStatusFilter', sending null.")
+                null
+            }
+        }
+    }
+
+    // --- MODIFIED applyLocalFilters to accept startDate and endDate ---
     private fun applyLocalFilters(
         sourceList: List<TransactionItem>,
-        selectedDate: LocalDate?,
+        selectedStartDate: LocalDate?,
+        selectedEndDate: LocalDate?,
         statusFilterKeyFromUi: String
     ): List<TransactionItem> {
-        Log.d("TransactionHistoryVM", "Applying local filters. Source size: ${sourceList.size}, Date: $selectedDate, UI Status Key: $statusFilterKeyFromUi")
+        Log.d("TransactionHistoryVM", "Applying local filters. Source size: ${sourceList.size}, StartDate: $selectedStartDate, EndDate: $selectedEndDate, UI Status Key: $statusFilterKeyFromUi")
         val locallyFiltered = sourceList.filter { transaction ->
-            val dateMatch = selectedDate?.let { transaction.dateTime.toLocalDate() == it } ?: true
+            val transactionDate = transaction.dateTime.toLocalDate()
 
-            // This client-side status filter is primarily useful if the API was called for "All" statuses.
-            // If API was called for a specific status, all items in sourceList should already match that.
-            val statusMatch = if (currentStatusFilter.equals("All", ignoreCase = true) || currentStatusFilter == null) {
-                when (statusFilterKeyFromUi.lowercase()) { // use lowercase for robustness
-                    "approved" -> transaction.status == TransactionStatus.APPROVED
-                    "declined" -> transaction.status == TransactionStatus.DECLINED
-                    "pending" -> transaction.status == TransactionStatus.PENDING
-                    "failed" -> transaction.status == TransactionStatus.FAILED
-                    "all" -> true
-                    else -> true
+            // Date range matching logic
+            val dateMatch = when {
+                selectedStartDate != null && selectedEndDate != null -> {
+                    !transactionDate.isBefore(selectedStartDate) && !transactionDate.isAfter(selectedEndDate)
                 }
-            } else {
-                true
+                selectedStartDate != null -> { // Only start date selected
+                    !transactionDate.isBefore(selectedStartDate)
+                }
+                selectedEndDate != null -> { // Only end date selected (less common, but handle)
+                    !transactionDate.isAfter(selectedEndDate)
+                }
+                else -> true // No date range selected
+            }
+
+            val statusMatch = when (statusFilterKeyFromUi.lowercase()) {
+                "all" -> true
+                "approved" -> transaction.status == TransactionStatus.APPROVED
+                "pending" -> transaction.status == TransactionStatus.PENDING
+                "declined" -> transaction.status == TransactionStatus.FAILED || transaction.status == TransactionStatus.DECLINED
+                "failed" -> transaction.status == TransactionStatus.FAILED
+                else -> true
             }
             dateMatch && statusMatch
         }
         Log.d("TransactionHistoryVM", "Local filtering resulted in ${locallyFiltered.size} items.")
         return locallyFiltered
     }
+    // --- END MODIFIED applyLocalFilters ---
 
-    fun onDateSelected(date: LocalDate?) {
-        Log.d("TransactionHistoryVM", "Date selected in UI: $date.")
-        _transactionUiState.update { it.copy(selectedDate = date, showDatePickerDialog = false) }
-        val currentAllTransactions = _transactionUiState.value.allTransactions
-        val currentStatusFilterKeyFromUi = _transactionUiState.value.selectedStatusFilter
-        _transactionUiState.update {
-            it.copy(filteredTransactions = applyLocalFilters(currentAllTransactions, date, currentStatusFilterKeyFromUi))
-        }
-    }
-
-    fun onStatusFilterChanged(newStatusKeyFromUi: String) {
-        _transactionUiState.update { it.copy(selectedStatusFilter = newStatusKeyFromUi) }
-        Log.d("TransactionHistoryVM", "UI Status filter dropdown changed to: $newStatusKeyFromUi.")
-        // Note: This only updates the UI state. applyFiltersAndFetch() triggers the new API call.
-    }
-
-    fun applyFiltersAndFetch() {
-        val newSelectedStatusFromUi = _transactionUiState.value.selectedStatusFilter
-        currentStatusFilter = newSelectedStatusFromUi
-        Log.d("TransactionHistoryVM", "Apply Filters button clicked. New API status filter set to: $currentStatusFilter. Refreshing data from page 1.")
-
-        val statusToSendToApi = if (currentStatusFilter.equals("All", ignoreCase = true)) null else currentStatusFilter
-        currentPage = 1 // Reset pagination for new filter
-        totalPages = 1
-        fetchTransactionPage(page = 1, statusFilter = statusToSendToApi, isRefresh = true)
-    }
-
-    fun showDatePicker(show: Boolean) {
-        _transactionUiState.update { it.copy(showDatePickerDialog = show) }
-    }
-
-    fun showTransactionDetails(transaction: TransactionItem?) {
-        _transactionUiState.update {
-            it.copy(
-                showTransactionDetailDialog = transaction != null,
-                transactionForDetail = transaction
+    // --- NEW: onDateRangeSelected function ---
+    fun onDateRangeSelected(startDate: LocalDate?, endDate: LocalDate?) {
+        Log.d("TransactionHistoryVM", "Date range selected in UI: StartDate=$startDate, EndDate=$endDate")
+        _transactionUiState.update { currentState ->
+            val newFiltered = applyLocalFilters(
+                currentState.allTransactions,
+                startDate, // Use new startDate
+                endDate,   // Use new endDate
+                currentState.selectedStatusFilter
+            )
+            currentState.copy(
+                selectedStartDate = startDate,
+                selectedEndDate = endDate,
+                showDatePickerDialog = false, // Close dialog
+                filteredTransactions = newFiltered
             )
         }
     }
+    // --- END NEW onDateRangeSelected ---
+
+    // `onDateSelected` is no longer needed, remove or comment out
+    /*
+    fun onDateSelected(date: LocalDate?) { ... }
+    */
+
+    fun onStatusFilterChanged(newStatusKeyFromUi: String) {
+        _transactionUiState.update { currentState ->
+            val newFiltered = applyLocalFilters(
+                currentState.allTransactions,
+                currentState.selectedStartDate, // Use existing startDate
+                currentState.selectedEndDate,   // Use existing endDate
+                newStatusKeyFromUi
+            )
+            currentState.copy(
+                selectedStatusFilter = newStatusKeyFromUi,
+                filteredTransactions = newFiltered
+            )
+        }
+        Log.d("TransactionHistoryVM", "UI Status filter selection changed to: $newStatusKeyFromUi. Local filter applied.")
+    }
+
+    fun applyFiltersAndFetch() {
+        val uiStateValue = _transactionUiState.value
+        Log.d("TransactionHistoryVM", "Apply Filters. UI Status: ${uiStateValue.selectedStatusFilter}, StartDate: ${uiStateValue.selectedStartDate}, EndDate: ${uiStateValue.selectedEndDate}")
+
+        val statusToSendToApi = mapUiStatusToApiParam(uiStateValue.selectedStatusFilter)
+        // val startDateToSendToApi = uiStateValue.selectedStartDate?.format(DateTimeFormatter.ISO_LOCAL_DATE) // If API supports
+        // val endDateToSendToApi = uiStateValue.selectedEndDate?.format(DateTimeFormatter.ISO_LOCAL_DATE)     // If API supports
+
+        Log.d("TransactionHistoryVM", "Mapped API status: '$statusToSendToApi'. Refreshing data.")
+        currentPage = 1
+        totalPages = 1
+        fetchTransactionPage(
+            page = 1,
+            statusFilter = statusToSendToApi,
+            // startDateFilter = startDateToSendToApi, // Pass to API if supported
+            // endDateFilter = endDateToSendToApi,     // Pass to API if supported
+            isRefresh = true
+        )
+    }
+
+    fun showDatePicker(show: Boolean) { // This function now controls the visibility of the DateRangePickerDialog
+        _transactionUiState.update { it.copy(showDatePickerDialog = show) }
+    }
+
+    fun showTransactionDetails(transaction: TransactionItem?) { /* ... */ }
+    fun refreshTransactions() { applyFiltersAndFetch() }
 }

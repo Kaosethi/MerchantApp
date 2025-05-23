@@ -118,7 +118,7 @@ class MerchantRepository(private val context: Context) {
         return try {
             Log.d("MerchantRepository", "Fetching merchant profile...")
             // Ensure 'fetchMerchantProfile' (or similar) matches the method name in your ApiService.kt
-            val response = apiService.fetchMerchantProfile() // CORRECTED CALL
+            val response = apiService.getMerchantProfile() // CORRECTED CALL
 
             if (response.isSuccessful) {
                 val profileResponseBody = response.body()
