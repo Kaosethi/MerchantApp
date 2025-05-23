@@ -1,34 +1,43 @@
 // File: app/src/main/java/com/example/merchantapp/viewmodel/ForgotPasswordViewModel.kt
 package com.example.merchantapp.viewmodel
 
+import android.app.Application // <-- NEW IMPORT
 import android.util.Log
-import android.util.Patterns // For basic email validation
-import androidx.lifecycle.ViewModel
+import android.util.Patterns
+import androidx.lifecycle.AndroidViewModel // <-- NEW IMPORT instead of ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.merchantapp.ui.forgotpassword.ForgotPasswordUiState // Ensure this import is correct
-import kotlinx.coroutines.delay // For simulating network delay
+import com.example.merchantapp.model.ForgotPasswordRequest
+import com.example.merchantapp.network.ApiService
+import com.example.merchantapp.network.RetrofitInstance // <-- Correct import for your RetrofitInstance
+import com.example.merchantapp.ui.forgotpassword.ForgotPasswordUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 
-class ForgotPasswordViewModel : ViewModel() {
+// ViewModel now extends AndroidViewModel and takes Application in constructor
+class ForgotPasswordViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(ForgotPasswordUiState())
     val uiState: StateFlow<ForgotPasswordUiState> = _uiState.asStateFlow()
+
+    // Get ApiService using application context from AndroidViewModel
+    private val apiService: ApiService = RetrofitInstance.getApiService(application.applicationContext)
 
     fun onEmailChange(newEmail: String) {
         _uiState.update { currentState ->
             currentState.copy(
                 email = newEmail,
-                errorMessage = null // Clear error when user types
+                errorMessage = null,
+                apiMessage = null
             )
         }
         Log.d("ForgotPasswordVM", "Email updated: $newEmail")
     }
 
-    fun submitRequest() { // Renaming this to reflect sending OTP might be good later, e.g., sendOtpRequest
+    fun submitRequestOtp() {
         val currentEmail = _uiState.value.email.trim()
 
         if (currentEmail.isBlank()) {
@@ -42,44 +51,61 @@ class ForgotPasswordViewModel : ViewModel() {
             return
         }
 
-        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-        Log.d("ForgotPasswordVM", "Requesting OTP for: $currentEmail")
+        _uiState.update { it.copy(isLoading = true, errorMessage = null, apiMessage = null) }
+        Log.d("ForgotPasswordVM", "Requesting OTP for: $currentEmail via API")
 
         viewModelScope.launch {
             try {
-                delay(1500) // Simulate network delay for sending OTP
+                val request = ForgotPasswordRequest(email = currentEmail)
+                val response = apiService.requestPasswordReset(request) // Use the initialized apiService
 
-                // --- Mock Logic for sending OTP ---
-                // In a real app, call backend to send OTP to 'currentEmail'
-                // Backend would confirm if email is registered.
-                // For now, assume success if email format is valid.
-                Log.d("ForgotPasswordVM", "Mock OTP 'sent' successfully to $currentEmail.")
+                if (response.isSuccessful && response.body() != null) {
+                    Log.d("ForgotPasswordVM", "OTP request API success: ${response.body()!!.message}")
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            isLoading = false,
+                            isOtpRequestSuccess = true,
+                            apiMessage = response.body()!!.message,
+                            errorMessage = null
+                        )
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string() ?: "Unknown error from server"
+                    Log.e("ForgotPasswordVM", "OTP request API error: ${response.code()} - $errorBody")
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            isLoading = false,
+                            isOtpRequestSuccess = false,
+                            errorMessage = "Failed to request OTP (Code: ${response.code()}). Please try again."
+                        )
+                    }
+                }
+            } catch (e: IOException) {
+                Log.e("ForgotPasswordVM", "Network error during OTP request: ${e.message}", e)
                 _uiState.update { currentState ->
                     currentState.copy(
                         isLoading = false,
-                        isSuccess = true, // Signal that OTP sending was "successful"
-                        errorMessage = null
+                        isOtpRequestSuccess = false,
+                        errorMessage = "Network error. Please check your connection."
                     )
                 }
-                // --- End Mock Logic ---
-
             } catch (e: Exception) {
-                Log.e("ForgotPasswordVM", "Error during mock OTP sending: ${e.message}")
+                Log.e("ForgotPasswordVM", "Error during OTP request: ${e.message}", e)
                 _uiState.update { currentState ->
                     currentState.copy(
                         isLoading = false,
-                        isSuccess = false,
-                        errorMessage = "An unexpected error occurred while sending OTP."
+                        isOtpRequestSuccess = false,
+                        errorMessage = "An unexpected error occurred. Please try again."
                     )
                 }
             }
         }
     }
 
-    fun resetSuccessState() {
-        if (_uiState.value.isSuccess) {
-            _uiState.update { it.copy(isSuccess = false) }
-            Log.d("ForgotPasswordVM", "Success state (for OTP sent) reset.")
+    fun resetOtpRequestSuccessState() {
+        if (_uiState.value.isOtpRequestSuccess) {
+            _uiState.update { it.copy(isOtpRequestSuccess = false, apiMessage = null) }
+            Log.d("ForgotPasswordVM", "isOtpRequestSuccess state reset.")
         }
     }
 }

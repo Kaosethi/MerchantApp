@@ -1,5 +1,5 @@
 // SetNewPasswordScreen.kt
-package com.example.merchantapp.ui.setnewpassword // MODIFIED: Removed Russian comment
+package com.example.merchantapp.ui.setnewpassword
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,14 +15,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.SavedStateHandle
+// Removed: import androidx.lifecycle.SavedStateHandle // No longer needed directly in Screen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.viewmodel.SetNewPasswordViewModel
 
 @Composable
 fun SetNewPasswordScreen(
-    viewModel: SetNewPasswordViewModel = viewModel(),
+    viewModel: SetNewPasswordViewModel = viewModel(), // ViewModel will get args from SavedStateHandle
     onPasswordSetNavigateToLogin: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -30,7 +30,7 @@ fun SetNewPasswordScreen(
     LaunchedEffect(uiState.isPasswordSetSuccessfully) {
         if (uiState.isPasswordSetSuccessfully) {
             onPasswordSetNavigateToLogin()
-            viewModel.onPasswordSetSuccessNavigationConsumed() // Reset the flag
+            viewModel.onPasswordSetSuccessNavigationConsumed()
         }
     }
 
@@ -38,13 +38,13 @@ fun SetNewPasswordScreen(
         uiState = uiState,
         onNewPasswordChange = viewModel::onNewPasswordChange,
         onConfirmPasswordChange = viewModel::onConfirmPasswordChange,
-        onSetNewPasswordClick = viewModel::setNewPassword
+        onSetNewPasswordClick = { viewModel.setNewPassword() } // Ensure lambda for onClick
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
+fun SetNewPasswordScreenContent(
     uiState: SetNewPasswordUiState,
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -67,15 +67,26 @@ fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
-            Text(
-                text = "Please set a new password for your account associated with: ${uiState.emailOrToken}",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
+            // MODIFIED: Use uiState.emailForContext for display
+            if (!uiState.emailForContext.isNullOrBlank()) {
+                Text(
+                    text = "Please set a new password for your account associated with: ${uiState.emailForContext}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                // Optional: Show a generic message if email isn't available for display
+                Text(
+                    text = "Please set a new password for your account.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
 
             OutlinedTextField(
                 value = uiState.newPassword,
-                onValueChange = onNewPasswordChange, // MODIFIED: Use passed lambda
+                onValueChange = onNewPasswordChange,
                 label = { Text("New Password") },
                 singleLine = true,
                 visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -87,13 +98,13 @@ fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
                         Icon(imageVector = image, description)
                     }
                 },
-                isError = uiState.errorMessage != null && (uiState.errorMessage.contains("Password") || !uiState.passwordsMatch),
+                isError = uiState.errorMessage != null && (uiState.errorMessage.contains("Password", ignoreCase = true) || !uiState.passwordsMatch), // Added ignoreCase
                 modifier = Modifier.fillMaxWidth()
             )
 
             OutlinedTextField(
                 value = uiState.confirmPassword,
-                onValueChange = onConfirmPasswordChange, // MODIFIED: Use passed lambda
+                onValueChange = onConfirmPasswordChange,
                 label = { Text("Confirm New Password") },
                 singleLine = true,
                 visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -105,21 +116,20 @@ fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
                         Icon(imageVector = image, description)
                     }
                 },
-                isError = !uiState.passwordsMatch,
+                isError = !uiState.passwordsMatch && uiState.confirmPassword.isNotEmpty(), // Show error only if confirm has text and mismatch
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // MODIFIED: Smart cast fix
             val currentPasswordRequirementsMessage = uiState.passwordRequirementsMessage
-            if (currentPasswordRequirementsMessage != null) {
-                Text(
-                    text = currentPasswordRequirementsMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Removed null check if passwordRequirementsMessage is non-nullable in UiState, otherwise keep it
+            Text(
+                text = currentPasswordRequirementsMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-            if (!uiState.passwordsMatch && uiState.confirmPassword.isNotEmpty()) {
+
+            if (!uiState.passwordsMatch && uiState.confirmPassword.isNotEmpty() && uiState.newPassword.isNotEmpty()) { // Show only if both fields have text
                 Text(
                     text = "Passwords do not match.",
                     color = MaterialTheme.colorScheme.error,
@@ -127,7 +137,6 @@ fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
                 )
             }
 
-            // MODIFIED: Smart cast fix
             val currentErrorMessage = uiState.errorMessage
             if (currentErrorMessage != null) {
                 Text(
@@ -137,9 +146,19 @@ fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
                 )
             }
 
+            val currentApiMessage = uiState.apiMessage // For success message from API
+            if (currentApiMessage != null && !uiState.isPasswordSetSuccessfully) { // Show API message if not navigating yet
+                Text(
+                    text = currentApiMessage,
+                    color = MaterialTheme.colorScheme.primary, // Or appropriate color
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             Button(
-                onClick = onSetNewPasswordClick, // MODIFIED: Use passed lambda
-                enabled = !uiState.isLoading && uiState.newPassword.isNotEmpty() && uiState.confirmPassword.isNotEmpty(),
+                onClick = onSetNewPasswordClick,
+                // MODIFIED: Use uiState.canSubmit from ViewModel for button enabled state
+                enabled = !uiState.isLoading && uiState.canSubmit,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (uiState.isLoading) {
@@ -155,12 +174,13 @@ fun SetNewPasswordScreenContent( // ADDED: New stateless composable for UI
     }
 }
 
+// --- PREVIEWS UPDATED ---
 @Preview(showBackground = true, name = "Default State")
 @Composable
 fun SetNewPasswordScreenPreview() {
     MerchantAppTheme {
-        SetNewPasswordScreenContent( // MODIFIED: Preview now calls the stateless content composable
-            uiState = SetNewPasswordUiState(emailOrToken = "preview@example.com"),
+        SetNewPasswordScreenContent(
+            uiState = SetNewPasswordUiState(emailForContext = "preview@example.com"), // MODIFIED
             onNewPasswordChange = {},
             onConfirmPasswordChange = {},
             onSetNewPasswordClick = {}
@@ -172,13 +192,13 @@ fun SetNewPasswordScreenPreview() {
 @Composable
 fun SetNewPasswordScreenErrorMismatchPreview() {
     MerchantAppTheme {
-        SetNewPasswordScreenContent( // MODIFIED: Preview now calls the stateless content composable
+        SetNewPasswordScreenContent(
             uiState = SetNewPasswordUiState(
-                emailOrToken = "user@example.com",
+                emailForContext = "user@example.com", // MODIFIED
                 newPassword = "password123",
-                confirmPassword = "password124", // Mismatch
-                errorMessage = "Passwords do not match.", // This specific message is handled by a separate Text now
-                passwordsMatch = false, // This will trigger the "Passwords do not match" Text
+                confirmPassword = "password124",
+                passwordsMatch = false,
+                canSubmit = false, // Mismatch means cannot submit
                 passwordRequirementsMessage = "Password must be at least 8 characters long."
             ),
             onNewPasswordChange = {},
@@ -192,13 +212,14 @@ fun SetNewPasswordScreenErrorMismatchPreview() {
 @Composable
 fun SetNewPasswordScreenErrorGeneralPreview() {
     MerchantAppTheme {
-        SetNewPasswordScreenContent( // MODIFIED: Preview now calls the stateless content composable
+        SetNewPasswordScreenContent(
             uiState = SetNewPasswordUiState(
-                emailOrToken = "user@example.com",
+                emailForContext = "user@example.com", // MODIFIED
                 newPassword = "password123",
                 confirmPassword = "password123",
-                errorMessage = "A general error occurred.", // This will be shown
+                errorMessage = "A general error occurred.",
                 passwordsMatch = true,
+                canSubmit = true, // Assume valid passwords for this general error preview
                 passwordRequirementsMessage = "Password must be at least 8 characters long."
             ),
             onNewPasswordChange = {},
@@ -212,13 +233,14 @@ fun SetNewPasswordScreenErrorGeneralPreview() {
 @Composable
 fun SetNewPasswordScreenLoadingPreview() {
     MerchantAppTheme {
-        SetNewPasswordScreenContent( // MODIFIED: Preview now calls the stateless content composable
+        SetNewPasswordScreenContent(
             uiState = SetNewPasswordUiState(
-                emailOrToken = "user@example.com",
+                emailForContext = "user@example.com", // MODIFIED
                 newPassword = "password123",
                 confirmPassword = "password123",
                 isLoading = true,
-                passwordsMatch = true
+                passwordsMatch = true,
+                canSubmit = false // Cannot submit while loading
             ),
             onNewPasswordChange = {},
             onConfirmPasswordChange = {},

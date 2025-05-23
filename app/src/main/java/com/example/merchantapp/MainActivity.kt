@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-// SavedStateHandle is used by the factory, not directly here for VM creation with AbstractSavedStateViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -32,7 +31,7 @@ import com.example.merchantapp.auth.AuthEventBus
 import com.example.merchantapp.data.local.AuthManager
 import com.example.merchantapp.navigation.AppDestinations
 import com.example.merchantapp.navigation.AppNavigationActions
-import com.example.merchantapp.navigation.BottomNavDestinations
+// import com.example.merchantapp.navigation.BottomNavDestinations // Unused import
 
 // Screen Imports
 import com.example.merchantapp.ui.confirmation.TransactionConfirmationScreen
@@ -41,7 +40,7 @@ import com.example.merchantapp.ui.login.LoginScreen
 import com.example.merchantapp.ui.main.MainScreen
 import com.example.merchantapp.ui.otp.OtpEntryScreen
 import com.example.merchantapp.ui.pinentry.PinEntryScreen
-import com.example.merchantapp.ui.pinentry.PinEntryViewModelFactory // ViewModelFactory import
+import com.example.merchantapp.ui.pinentry.PinEntryViewModelFactory
 import com.example.merchantapp.ui.qr.QrScanScreen
 import com.example.merchantapp.ui.register.RegisterScreen
 import com.example.merchantapp.ui.setnewpassword.SetNewPasswordScreen
@@ -99,7 +98,7 @@ fun AppNavigation(applicationContext: Context) {
                         val currentRoute = navController.currentBackStackEntry?.destination?.route
                         Log.i("AppNavigation", "Handling TokenExpiredOrInvalid. Current route: $currentRoute.")
                         if (currentRoute != AppDestinations.LOGIN_ROUTE) {
-                            navigationActions.navigateToLogin()
+                            navigationActions.navigateToLogin(true) // Pass true to clear backstack
                             Log.i("AppNavigation", "Navigation to LOGIN_ROUTE initiated due to TokenExpiredOrInvalid.")
                             Toast.makeText(applicationContext, "Session expired. Please log in again.", Toast.LENGTH_LONG).show()
                         }
@@ -146,35 +145,42 @@ fun AppNavigation(applicationContext: Context) {
                 viewModel = forgotPasswordViewModel,
                 onNavigateBack = { navigationActions.navigateUp() },
                 onOtpSentNavigateToOtpEntry = { email ->
-                    Toast.makeText(applicationContext, "OTP 'sent' (Mocked: 111111)", Toast.LENGTH_LONG).show()
+                    Log.d("AppNavigation", "Navigating from ForgotPassword to OTP Entry. Email: $email")
                     navigationActions.navigateToOtpEntry(email)
                 }
             )
         }
 
         composable(
-            route = AppDestinations.OTP_ENTRY_ROUTE_PATTERN,
+            route = AppDestinations.OTP_ENTRY_ROUTE_PATTERN, // Example: "otpEntryRoute/{email}"
             arguments = listOf(navArgument("email") { type = NavType.StringType })
-        ) {
-            val otpViewModel: OtpEntryViewModel = viewModel()
+        ) { navBackStackEntry ->
+            val otpViewModel: OtpEntryViewModel = viewModel() // Assumes default factory handles AndroidViewModel
             OtpEntryScreen(
                 viewModel = otpViewModel,
                 onNavigateBack = { navigationActions.navigateUp() },
-                onOtpVerifiedNavigateToSetPassword = { verifiedEmailOrToken ->
-                    navigationActions.navigateToSetNewPassword(verifiedEmailOrToken)
-                },
-                onRequestResendOtp = { /* ViewModel handles this */ }
+                onOtpVerifiedNavigateToSetPassword = { email, resetToken -> // Corrected lambda signature
+                    Log.d("AppNavigation", "Navigating from OTP to SetNewPassword. Email: $email, TokenNotBlank: ${resetToken.isNotBlank()}")
+                    navigationActions.navigateToSetNewPassword(email, resetToken) // Pass both arguments
+                }
+                // onRequestResendOtp removed as ViewModel handles it
             )
         }
 
         composable(
-            route = AppDestinations.SET_NEW_PASSWORD_ROUTE_PATTERN,
-            arguments = listOf(navArgument("email_or_token") { type = NavType.StringType })
-        ) {
-            val setNewPasswordViewModel: SetNewPasswordViewModel = viewModel()
+            route = AppDestinations.SET_NEW_PASSWORD_ROUTE_PATTERN, // Example: "setNewPasswordRoute/{email}/{resetAuthToken}"
+            arguments = listOf(
+                navArgument("email") { type = NavType.StringType },
+                navArgument("resetAuthToken") { type = NavType.StringType } // Key must be "resetAuthToken"
+            )
+        ) { navBackStackEntry -> // Renamed to navBackStackEntry to avoid warning, can be _ if not used
+            val setNewPasswordViewModel: SetNewPasswordViewModel = viewModel() // Assumes default factory
             SetNewPasswordScreen(
                 viewModel = setNewPasswordViewModel,
-                onPasswordSetNavigateToLogin = { navigationActions.navigateToLogin() }
+                onPasswordSetNavigateToLogin = {
+                    Log.d("AppNavigation", "Password set. Navigating to Login.")
+                    navigationActions.navigateToLogin(true)
+                }
             )
         }
 
@@ -182,7 +188,7 @@ fun AppNavigation(applicationContext: Context) {
             MainScreen(
                 onLogoutRequest = {
                     AuthManager.logout(applicationContext)
-                    navigationActions.navigateToLogin()
+                    navigationActions.navigateToLogin(true) // Pass true to clear backstack
                 },
                 onNavigateToQrScan = { amount -> navigationActions.navigateToQrScan(amount) }
             )
@@ -192,7 +198,7 @@ fun AppNavigation(applicationContext: Context) {
             route = AppDestinations.QR_SCAN_ROUTE_PATTERN,
             arguments = listOf(navArgument("amount") { type = NavType.StringType })
         ) { backStackEntry ->
-            val qrViewModel: QrScanViewModel = viewModel() // Assumes SSH handled by default or via Hilt
+            val qrViewModel: QrScanViewModel = viewModel()
             val uiState by qrViewModel.uiState.collectAsState()
 
             LaunchedEffect(uiState.validationSuccess, uiState.validatedBeneficiary, navController) {
@@ -241,7 +247,6 @@ fun AppNavigation(applicationContext: Context) {
             )
         }
 
-        // --- MODIFIED PinEntryScreen composable block ---
         composable(
             route = AppDestinations.PIN_ENTRY_ROUTE_PATTERN,
             arguments = listOf(
@@ -250,31 +255,26 @@ fun AppNavigation(applicationContext: Context) {
                 navArgument("beneficiaryName") { type = NavType.StringType },
                 navArgument("category") { type = NavType.StringType }
             )
-        ) { backStackEntry -> // NavBackStackEntry is the SavedStateRegistryOwner
+        ) { backStackEntry ->
             val currentApplication = LocalContext.current.applicationContext as Application
-
-            // Instantiate PinEntryViewModel using the updated factory
             val pinEntryViewModel: PinEntryViewModel = viewModel(
-                viewModelStoreOwner = backStackEntry, // Scope ViewModel to this NavBackStackEntry
+                viewModelStoreOwner = backStackEntry,
                 factory = PinEntryViewModelFactory(
-                    owner = backStackEntry, // Pass the NavBackStackEntry as the owner
+                    owner = backStackEntry,
                     application = currentApplication,
-                    defaultArgs = backStackEntry.arguments // Pass the navigation arguments as defaultArgs
+                    defaultArgs = backStackEntry.arguments
                 )
             )
-
-            // Log arguments from the ViewModel's SavedStateHandle (ensure PinEntryViewModel logs this in init)
             LaunchedEffect(pinEntryViewModel) {
                 Log.d("AppNavigation/PinEntry", "PinEntryViewModel created. Check ViewModel logs for SSH content.")
             }
-
             PinEntryScreen(
-                viewModel = pinEntryViewModel, // Pass the created ViewModel instance
+                viewModel = pinEntryViewModel,
                 onNavigateBack = { navigationActions.navigateUp() },
-                onPinVerifiedNavigateToSuccess = { amount, beneficiaryIdFromVM, beneficiaryNameFromVM, categoryFromVM, transactionId ->
+                onPinVerifiedNavigateToSuccess = { amountVal, beneficiaryIdFromVM, beneficiaryNameFromVM, categoryFromVM, transactionId ->
                     navigationActions.navigateToTransactionSuccess(
                         transactionId = transactionId,
-                        amount = amount,
+                        amount = amountVal,
                         beneficiaryId = beneficiaryIdFromVM,
                         beneficiaryName = beneficiaryNameFromVM,
                         category = categoryFromVM
@@ -287,7 +287,6 @@ fun AppNavigation(applicationContext: Context) {
                 }
             )
         }
-        // --- END MODIFIED PinEntryScreen composable block ---
 
         composable(
             route = AppDestinations.TRANSACTION_SUCCESS_ROUTE_PATTERN,
