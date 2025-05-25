@@ -1,7 +1,10 @@
-// File: app/src/main/java/com/example/merchantapp/navigation/AppDestinations.kt
 package com.example.merchantapp.navigation
 
-import androidx.navigation.NavHostController // Ensure this import is present
+import android.net.Uri
+import android.util.Log
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import com.example.merchantapp.ui.outcome.OutcomeType
 
 object AppDestinations {
     const val LOGIN_ROUTE = "login"
@@ -9,58 +12,179 @@ object AppDestinations {
     const val MAIN_ROUTE = "main"
     const val FORGOT_PASSWORD_ROUTE = "forgot_password"
 
-    // Routes for OTP and Set Password screens
-    const val OTP_ENTRY_ROUTE_PATTERN = "otp_entry/{email}" // email is a path argument
-    const val SET_NEW_PASSWORD_ROUTE_PATTERN = "set_new_password/{email_or_token}" // email or token
+    const val OTP_ENTRY_ROUTE_PATTERN = "otp_entry/{email}" // Key: "email"
+    // MODIFIED: Route pattern to accept two distinct arguments
+    const val SET_NEW_PASSWORD_ROUTE_PATTERN = "set_new_password/{email}/{resetAuthToken}" // Keys: "email", "resetAuthToken"
 
-    // Original Routes
-    const val QR_SCAN_ROUTE = "qr_scan/{amount}"
-    const val TRANSACTION_CONFIRMATION_ROUTE = "transaction_confirmation/{amount}/{beneficiaryId}/{beneficiaryName}"
-
-    // ADDED: Route pattern for PIN Entry Screen
+    const val QR_SCAN_ROUTE_PATTERN = "qr_scan/{amount}"
+    const val TRANSACTION_CONFIRMATION_ROUTE_PATTERN = "transaction_confirmation/{amount}/{beneficiaryId}/{beneficiaryName}"
     const val PIN_ENTRY_ROUTE_PATTERN = "pin_entry/{amount}/{beneficiaryId}/{beneficiaryName}/{category}"
+    const val TRANSACTION_SUCCESS_ROUTE_PATTERN = "transaction_success/{transactionId}/{amount}/{beneficiaryId}/{beneficiaryName}/{category}"
+    const val TRANSACTION_OUTCOME_ROUTE_PATTERN = "transaction_outcome/{outcomeType}/{title}/{message}/{buttonLabel}"
 
-    // ADDED: Route pattern for Transaction Success Screen (placeholder for now)
-    const val TRANSACTION_SUCCESS_ROUTE_PATTERN = "transaction_success/{amount}/{beneficiaryId}/{beneficiaryName}/{category}/{transactionId}"
+    const val DASHBOARD_ROUTE = "dashboard"
+    const val TRANSACTION_HISTORY_ROUTE = "transaction_history"
+    const val AMOUNT_ENTRY_ROUTE = "amount_entry"
 
+    fun createOtpEntryRoute(email: String): String {
+        return OTP_ENTRY_ROUTE_PATTERN.replace("{email}", Uri.encode(email))
+    }
 
-    // Helper function to create the OTP entry route with email argument
-    fun createOtpEntryRoute(email: String): String = "otp_entry/$email"
+    // MODIFIED: Helper function to create route with email and resetAuthToken
+    fun createSetNewPasswordRoute(email: String, resetAuthToken: String): String {
+        return SET_NEW_PASSWORD_ROUTE_PATTERN
+            .replace("{email}", Uri.encode(email))
+            .replace("{resetAuthToken}", Uri.encode(resetAuthToken))
+    }
 
-    // Helper function for Set New Password route
-    fun createSetNewPasswordRoute(identifier: String): String = "set_new_password/$identifier"
-
-    // Original helper functions
-    fun createQrScanRoute(amount: String): String = "qr_scan/$amount"
+    fun createQrScanRoute(amount: String): String {
+        return QR_SCAN_ROUTE_PATTERN.replace("{amount}", Uri.encode(amount))
+    }
 
     fun createTransactionConfirmationRoute(amount: String, beneficiaryId: String, beneficiaryName: String): String {
-        return "transaction_confirmation/$amount/$beneficiaryId/$beneficiaryName"
+        return TRANSACTION_CONFIRMATION_ROUTE_PATTERN
+            .replace("{amount}", Uri.encode(amount))
+            .replace("{beneficiaryId}", Uri.encode(beneficiaryId))
+            .replace("{beneficiaryName}", Uri.encode(beneficiaryName))
     }
 
-    // ADDED: Helper function for PIN Entry route
     fun createPinEntryRoute(amount: String, beneficiaryId: String, beneficiaryName: String, category: String): String {
-        // Note: Ensure category is URL-encoded if it can contain special characters.
-        // For simplicity now, assuming it's a simple string.
-        return "pin_entry/$amount/$beneficiaryId/$beneficiaryName/$category"
+        return PIN_ENTRY_ROUTE_PATTERN
+            .replace("{amount}", Uri.encode(amount))
+            .replace("{beneficiaryId}", Uri.encode(beneficiaryId))
+            .replace("{beneficiaryName}", Uri.encode(beneficiaryName))
+            .replace("{category}", Uri.encode(category))
     }
 
-    // ADDED: Helper function for Transaction Success route (placeholder for now)
-    fun createTransactionSuccessRoute(amount: String, beneficiaryId: String, beneficiaryName: String, category: String, transactionId: String): String {
-        return "transaction_success/$amount/$beneficiaryId/$beneficiaryName/$category/$transactionId"
+    fun createTransactionSuccessRoute(
+        transactionId: String,
+        amount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        category: String
+    ): String {
+        return TRANSACTION_SUCCESS_ROUTE_PATTERN
+            .replace("{transactionId}", Uri.encode(transactionId))
+            .replace("{amount}", Uri.encode(amount))
+            .replace("{beneficiaryId}", Uri.encode(beneficiaryId))
+            .replace("{beneficiaryName}", Uri.encode(beneficiaryName))
+            .replace("{category}", Uri.encode(category))
+    }
+
+    fun createTransactionOutcomeRoute(
+        outcomeType: OutcomeType,
+        title: String,
+        message: String,
+        buttonLabel: String
+    ): String {
+        return TRANSACTION_OUTCOME_ROUTE_PATTERN
+            .replace("{outcomeType}", outcomeType.name)
+            .replace("{title}", Uri.encode(title))
+            .replace("{message}", Uri.encode(message))
+            .replace("{buttonLabel}", Uri.encode(buttonLabel))
     }
 }
 
-// Re-included BottomNavScreens object
-object BottomNavScreens {
-    const val AMOUNT_ENTRY = "amount_entry"
-    const val SUMMARY = "summary"
-    const val ANALYTICS = "analytics"
+object BottomNavDestinations {
+    const val DASHBOARD_TAB = "app_dashboard_tab"
+    const val AMOUNT_ENTRY_TAB = "app_amount_entry_tab"
+    const val TRANSACTION_HISTORY_TAB = "app_transaction_history_tab"
 }
 
-// Re-included AppNavigationActions class
 class AppNavigationActions(private val navController: NavHostController) {
+
+    // MODIFIED: Added clearBackStack parameter with a default value
+    fun navigateToLogin(clearBackStack: Boolean = false) {
+        navController.navigate(AppDestinations.LOGIN_ROUTE) {
+            if (clearBackStack) {
+                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+            }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToRegister() {
+        navController.navigate(AppDestinations.REGISTER_ROUTE)
+    }
+
+    fun navigateToMainScreenAfterLogin() {
+        navController.navigate(AppDestinations.MAIN_ROUTE) {
+            popUpTo(AppDestinations.LOGIN_ROUTE) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToForgotPassword() {
+        navController.navigate(AppDestinations.FORGOT_PASSWORD_ROUTE)
+    }
+
+    fun navigateToOtpEntry(email: String) {
+        navController.navigate(AppDestinations.createOtpEntryRoute(email))
+    }
+
+    // MODIFIED: Function now accepts email and resetToken
+    fun navigateToSetNewPassword(email: String, resetToken: String) {
+        navController.navigate(AppDestinations.createSetNewPasswordRoute(email, resetToken))
+    }
+
     fun navigateToQrScan(amount: String) {
         navController.navigate(AppDestinations.createQrScanRoute(amount))
     }
-    // Add other navigation actions here if needed in the future
+
+    fun navigateToTransactionConfirmation(amount: String, beneficiaryId: String, beneficiaryName: String) {
+        navController.navigate(AppDestinations.createTransactionConfirmationRoute(amount, beneficiaryId, beneficiaryName))
+    }
+
+    fun navigateToPinEntry(amount: String, beneficiaryId: String, beneficiaryName: String, category: String) {
+        navController.navigate(AppDestinations.createPinEntryRoute(amount, beneficiaryId, beneficiaryName, category))
+    }
+
+    fun navigateToTransactionSuccess(
+        transactionId: String,
+        amount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        category: String
+    ) {
+        val route = AppDestinations.createTransactionSuccessRoute(
+            transactionId, amount, beneficiaryId, beneficiaryName, category
+        )
+        Log.d("AppNavActions", "Navigating to TransactionSuccess route: $route")
+        navController.navigate(route) {
+            popUpTo(AppDestinations.MAIN_ROUTE) { inclusive = false }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToTransactionOutcome(
+        outcomeType: OutcomeType,
+        title: String,
+        message: String,
+        buttonLabel: String
+    ) {
+        val route = AppDestinations.createTransactionOutcomeRoute(outcomeType, title, message, buttonLabel)
+        Log.d("AppNavActions", "Navigating to TransactionOutcome route: $route")
+        navController.navigate(route) {
+            val currentRoute = navController.currentDestination?.route
+            if (currentRoute != null && currentRoute.startsWith(AppDestinations.PIN_ENTRY_ROUTE_PATTERN.substringBefore("/{"))) {
+                popUpTo(currentRoute) { inclusive = true }
+            }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToHomeAfterTransaction() {
+        navController.navigate(AppDestinations.MAIN_ROUTE) {
+            popUpTo(AppDestinations.MAIN_ROUTE) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
+    fun navigateToTransactionHistoryScreen() {
+        navController.navigate(AppDestinations.TRANSACTION_HISTORY_ROUTE)
+    }
+
+    fun navigateUp() {
+        navController.popBackStack()
+    }
 }

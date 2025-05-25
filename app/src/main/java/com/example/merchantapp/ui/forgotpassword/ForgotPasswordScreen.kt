@@ -26,10 +26,10 @@ fun ForgotPasswordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.isSuccess, uiState.email) {
-        if (uiState.isSuccess && uiState.email.isNotBlank()) {
+    LaunchedEffect(uiState.isOtpRequestSuccess, uiState.email) {
+        if (uiState.isOtpRequestSuccess && uiState.email.isNotBlank()) {
             onOtpSentNavigateToOtpEntry(uiState.email)
-            viewModel.resetSuccessState()
+            viewModel.resetOtpRequestSuccessState()
         }
     }
 
@@ -52,7 +52,7 @@ fun ForgotPasswordScreen(
             modifier = Modifier.padding(paddingValues),
             uiState = uiState,
             onEmailChange = viewModel::onEmailChange,
-            onSubmitClick = viewModel::submitRequest
+            onSubmitClick = { viewModel.submitRequestOtp() }
         )
     }
 }
@@ -126,7 +126,7 @@ fun ForgotPasswordContent(
 fun ForgotPasswordScreenPreview() {
     MerchantAppTheme {
         ForgotPasswordContent(
-            uiState = ForgotPasswordUiState(email = "", isLoading = false, isSuccess = false, errorMessage = null),
+            uiState = ForgotPasswordUiState(email = "", isLoading = false, isOtpRequestSuccess = false, errorMessage = null),
             onEmailChange = {},
             onSubmitClick = {}
         )

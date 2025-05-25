@@ -6,34 +6,37 @@
     <string name="title_summary">Transaction Summary</string>
     <string name="title_analytics">Analytics</string>
 
-    <!-- Registration Screen Strings -->
+    <!-- Registration Screen Strings (ViewModel and UI) -->
     <string name="register_title">Merchant Registration</string>
-    <string name="action_back">Back</string> <!-- Keep this one -->
+    <string name="action_back">Back</string>
     <string name="register_instructions">Enter your store details to apply for registration. Your application will be reviewed by an administrator.</string>
-    <string name="label_store_name">Store Name</string>
+    <string name="label_store_name">Store Name</string> <!-- Used as Category by ViewModel -->
     <string name="placeholder_store_name">e.g., Main Street Groceries</string>
-    <string name="label_contact_name">Contact Person Name</string>
+    <string name="label_contact_name">Contact Person Name</string> <!-- Used as Merchant Name by ViewModel -->
     <string name="placeholder_contact_name">e.g., John Doe</string>
-    <string name="label_email">Contact Email</string>
+    <string name="label_email">Login Email</string> <!-- Used as Email by ViewModel -->
     <string name="placeholder_email">e.g., contact@store.com</string>
     <string name="label_phone">Contact Phone</string>
     <string name="placeholder_phone">e.g., (555) 123–4567</string>
-    <string name="label_address">Store Address</string>
+    <string name="label_address">Store Address</string> <!-- Used as Location by ViewModel -->
     <string name="placeholder_address">e.g., 123 Main St, Anytown</string>
     <string name="label_password">Password</string>
     <string name="placeholder_password">Choose a secure password</string>
     <string name="label_confirm_password">Confirm Password</string>
     <string name="placeholder_confirm_password">Re-enter your password</string>
     <string name="button_submit_registration">Submit Registration</string>
-    <string name="registration_failed">Registration Failed. Please try again.</string>
-    <string name="registration_successful">Registration submitted successfully!</string>
+    <string name="registration_failed">Registration Failed. Please try again.</string> <!-- General UI failure -->
+    <string name="registration_successful">Registration submitted successfully!</string> <!-- UI success -->
 
-    <!-- Registration Screen Validation -->
-    <string name="validation_required_field">*</string>
-    <string name="validation_fill_all_fields">Please fill in all required fields marked with *</string>
-    <string name="validation_passwords_mismatch">Passwords do not match.</string>
-    <string name="validation_password_too_short">Password must be at least 6 characters long.</string>
-    <string name="label_password_requirement">Minimum 6 characters</string>
+    <!-- Registration Screen Validation (Used by ViewModel and UI) -->
+    <string name="validation_required_field">*</string> <!-- For marking fields -->
+    <string name="validation_fill_all_fields">Please fill in all required fields marked with *</string> <!-- General form error -->
+    <string name="validation_passwords_mismatch">Passwords do not match.</string> <!-- ViewModel -->
+    <string name="validation_password_too_short">Password must be at least 6 characters long.</string> <!-- ViewModel -->
+    <string name="label_password_requirement">Minimum 6 characters</string> <!-- UI hint -->
+    <string name="validation_email_invalid">Invalid email format. Please enter a valid email.</string>
+    <string name="registration_failed_server">Registration failed due to a server error. Please try again later.</string>
+
 
     <!-- Bottom Navigation Labels -->
     <string name="bottom_nav_home">Home</string>
@@ -56,13 +59,9 @@
     <string name="pin_entry_backspace">Backspace</string>
     <string name="confirm_label_account_id">Account ID</string>
     <string name="confirm_label_amount_to_charge">Amount to Charge</string>
-    <string name="confirm_select_category_placeholder">Select Category</string> <!-- THIS ONE -->
-    <string name="confirm_label_category">Category</string> <!-- AND THIS ONE -->
-    <!-- MODIFIED: Changed placeholder text slightly for clarity -->
+    <string name="confirm_select_category_placeholder">Select Category</string>
+    <string name="confirm_label_category">Category</string>
     <string name="confirm_placeholder_category">Select transaction category</string>
-    <!-- REMOVED: Merchant PIN field strings as they are no longer used on this screen -->
-    <!-- <string name="confirm_label_pin">Merchant PIN</string> -->
-    <!-- <string name="confirm_placeholder_pin">Enter your 4-digit PIN</string> -->
-    <string name="confirm_button_confirm">Confirm &amp; Process</string> <!-- Use & for & -->
+    <string name="confirm_button_confirm">Confirm Process</string> <!-- WORDING CHANGED: Ampersand removed -->
 
 </resources>

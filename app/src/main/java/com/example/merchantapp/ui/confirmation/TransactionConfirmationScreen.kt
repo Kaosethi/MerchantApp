@@ -172,6 +172,7 @@ fun TransactionConfirmationScreen(
                 onClick = {
                     Log.d("ConfirmScreen", "Confirm button clicked. Category: $selectedCategory, Amount: $amount, BeneficiaryID: $beneficiaryId")
                     onConfirmAndProcess(amount, beneficiaryId, beneficiaryName, selectedCategory)
+
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -196,3 +197,4 @@ private fun TransactionConfirmationScreenPreview() {
         )
     }
 }
+

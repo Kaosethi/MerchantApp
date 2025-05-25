@@ -1,18 +1,21 @@
-// File: app/src/main/java/com/example/merchantapp/viewmodel/RegisterViewModel.kt
+// MODIFIED: app/src/main/java/com/example/merchantapp/viewmodel/RegisterViewModel.kt
 package com.example.merchantapp.viewmodel
 
+import android.app.Application // ADDED: For AndroidViewModel
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel // MODIFIED: Changed from ViewModel to AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.merchantapp.R // ADDED: Import R for string resource IDs
-import kotlinx.coroutines.delay // For simulating network delay later
+import com.example.merchantapp.R // Make sure this is your app's R file
+import com.example.merchantapp.data.repository.MerchantRepository // Ensure this path is correct
+import com.example.merchantapp.data.repository.Result // Ensure this path is correct, or if Result is defined elsewhere
+import com.example.merchantapp.model.MerchantRegistrationRequest // Ensure this path is correct (com.example.merchantapp.model)
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// ADDED: Enum to identify fields for validation state
+// Enum RegisterFormField remains the same
 enum class RegisterFormField {
     STORE_NAME,
     CONTACT_NAME,
@@ -23,7 +26,7 @@ enum class RegisterFormField {
     CONFIRM_PASSWORD
 }
 
-// MODIFIED: RegisterUiState to include validation fields
+// Data class RegisterUiState remains the same
 data class RegisterUiState(
     val storeName: String = "",
     val contactName: String = "",
@@ -33,21 +36,25 @@ data class RegisterUiState(
     val password: String = "",
     val confirmPassword: String = "",
     val isLoading: Boolean = false,
-    val registrationError: Int? = null, // Use Int for String Resource ID
+    val registrationError: Int? = null,
+    val registrationErrorMessage: String? = null,
     val registrationSuccess: Boolean = false,
-    val invalidFields: Set<RegisterFormField> = emptySet(), // Track invalid fields
-    val showGeneralValidationError: Boolean = false // Flag for general message
+    val invalidFields: Set<RegisterFormField> = emptySet(),
+    val showGeneralValidationError: Boolean = false
 )
 
-class RegisterViewModel : ViewModel() {
+// MODIFIED: Class declaration to extend AndroidViewModel and take Application in constructor
+class RegisterViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
 
-    // Minimum password length requirement
-    private val minPasswordLength = 6
+    // MODIFIED: Instantiate MerchantRepository with the application context
+    private val merchantRepository: MerchantRepository = MerchantRepository(application.applicationContext)
 
-    // --- Update functions for each field ---
+    private val minPasswordLength = 8 // Matched to backend validation
+
+    // All on<Field>Change methods (onStoreNameChange, onContactNameChange, etc.) remain the same
     fun onStoreNameChange(newValue: String) {
         _uiState.update { it.copy(storeName = newValue, invalidFields = it.invalidFields - RegisterFormField.STORE_NAME) }
     }
@@ -76,77 +83,105 @@ class RegisterViewModel : ViewModel() {
         _uiState.update { it.copy(confirmPassword = newValue, invalidFields = it.invalidFields - RegisterFormField.CONFIRM_PASSWORD) }
     }
 
-    // --- Submit Action ---
-    fun onSubmitClick() {
-        Log.d("RegisterViewModel", "Submit Clicked - Starting Validation")
-        // Clear previous validation errors first
-        _uiState.update { it.copy(registrationError = null, showGeneralValidationError = false, invalidFields = emptySet()) }
 
-        val currentState = uiState.value // Get current state for validation
+    fun onSubmitClick() {
+        // NOTE: This method does not directly use context for AuthManager,
+        // so it doesn't need to explicitly get `application.applicationContext`
+        // unless you add functionality here that needs it (e.g., showing a Toast, which should ideally be a side-effect triggered from UI).
+
+        Log.d("RegisterViewModel", "Submit Clicked - Starting Validation")
+        _uiState.update { it.copy(registrationError = null, registrationErrorMessage = null, showGeneralValidationError = false, invalidFields = emptySet()) }
+
+        val currentState = _uiState.value // Capture current state once
         val validationErrors = mutableSetOf<RegisterFormField>()
 
-        // 1. Check for empty fields
         if (currentState.storeName.isBlank()) validationErrors.add(RegisterFormField.STORE_NAME)
         if (currentState.contactName.isBlank()) validationErrors.add(RegisterFormField.CONTACT_NAME)
         if (currentState.email.isBlank()) validationErrors.add(RegisterFormField.EMAIL)
-        if (currentState.phone.isBlank()) validationErrors.add(RegisterFormField.PHONE) // Assuming phone is required
+        if (currentState.phone.isBlank()) validationErrors.add(RegisterFormField.PHONE)
         if (currentState.address.isBlank()) validationErrors.add(RegisterFormField.ADDRESS)
         if (currentState.password.isBlank()) validationErrors.add(RegisterFormField.PASSWORD)
         if (currentState.confirmPassword.isBlank()) validationErrors.add(RegisterFormField.CONFIRM_PASSWORD)
 
-        // If any field is empty, show general message and mark fields
         if (validationErrors.isNotEmpty()) {
-            Log.d("RegisterViewModel", "Validation Failed: Empty fields found - ${validationErrors.joinToString()}")
+            Log.d("RegisterViewModel", "Validation Failed: Empty/invalid fields - ${validationErrors.joinToString()}")
             _uiState.update {
                 it.copy(
                     invalidFields = validationErrors,
-                    showGeneralValidationError = true // Show the general message
+                    showGeneralValidationError = true
                 )
             }
-            return // Stop processing
+            return
         }
 
-        // 2. Check password requirements (only if not blank)
         if (currentState.password.length < minPasswordLength) {
-            Log.d("RegisterViewModel", "Validation Failed: Password too short")
-            _uiState.update { it.copy(registrationError = R.string.validation_password_too_short) }
-            return // Stop processing
+            Log.d("RegisterViewModel", "Validation Failed: Password too short (min $minPasswordLength)")
+            // Ensure R.string.validation_password_too_short exists
+            _uiState.update { it.copy(registrationError = R.string.validation_password_too_short, invalidFields = it.invalidFields + RegisterFormField.PASSWORD) }
+            return
         }
 
-        // 3. Check if passwords match (only if not blank)
         if (currentState.password != currentState.confirmPassword) {
             Log.d("RegisterViewModel", "Validation Failed: Passwords do not match")
-            _uiState.update { it.copy(registrationError = R.string.validation_passwords_mismatch) }
-            return // Stop processing
+            // Ensure R.string.validation_passwords_mismatch exists
+            _uiState.update { it.copy(registrationError = R.string.validation_passwords_mismatch, invalidFields = it.invalidFields + RegisterFormField.CONFIRM_PASSWORD + RegisterFormField.PASSWORD) }
+            return
+        }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(currentState.email).matches()) {
+            Log.d("RegisterViewModel", "Validation Failed: Invalid email format")
+            // Ensure R.string.validation_email_invalid exists
+            _uiState.update { it.copy(registrationError = R.string.validation_email_invalid, invalidFields = it.invalidFields + RegisterFormField.EMAIL) }
+            return
         }
 
-        // --- Validation Passed ---
-        Log.d("RegisterViewModel", "Validation Passed. Proceeding with registration (Mocked).")
-        Log.d("RegisterViewModel", "Store Name: ${currentState.storeName}")
-        Log.d("RegisterViewModel", "Contact Name: ${currentState.contactName}")
-        // ... log other fields if needed (avoid passwords in production) ...
-
-        // --- Mocked API Call ---
+        Log.d("RegisterViewModel", "Validation Passed. Proceeding with actual registration.")
         _uiState.update { it.copy(isLoading = true) }
+
         viewModelScope.launch {
-            try {
-                delay(1500) // Simulate network call
-                // TODO: Replace with actual repository.register(...) call
-                Log.d("RegisterViewModel", "Mock registration successful")
-                _uiState.update { it.copy(isLoading = false, registrationSuccess = true) }
-            } catch (e: Exception) {
-                Log.e("RegisterViewModel", "Mock registration failed", e)
-                _uiState.update { it.copy(isLoading = false, registrationError = R.string.registration_failed) } // Generic failure message
+            val registrationRequest = MerchantRegistrationRequest(
+                storeName = currentState.storeName,
+                email = currentState.email,
+                password = currentState.password,
+                location = currentState.address,
+                contactPerson = currentState.contactName,
+                contactPhoneNumber = currentState.phone
+            )
+
+            Log.d("RegisterViewModel", "Registration Request being sent: $registrationRequest")
+
+            // The merchantRepository instance is now the class member, initialized with context
+            when (val result = merchantRepository.registerMerchant(registrationRequest)) {
+                is Result.Success -> {
+                    Log.i("RegisterViewModel", "Registration API call successful: ${result.data.message}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            registrationSuccess = true,
+                            registrationError = null, // Clear previous errors on success
+                            registrationErrorMessage = null
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    Log.e("RegisterViewModel", "Registration API call failed: ${result.errorMessage}", result.exception)
+                    // Ensure R.string.registration_failed_server exists if using it as a fallback
+                    val errorMessageToShow = result.errorMessage.ifBlank { "Registration failed. Please try again." }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            registrationError = null, // Using string message primarily
+                            registrationErrorMessage = errorMessageToShow
+                        )
+                    }
+                }
             }
         }
     }
 
-    // Function to clear specific errors after they've been shown (e.g., in a Toast)
     fun clearError() {
-        _uiState.update { it.copy(registrationError = null) }
+        _uiState.update { it.copy(registrationError = null, registrationErrorMessage = null) }
     }
 
-    // Function to reset success flag after navigation or message shown
     fun consumeSuccess() {
         _uiState.update { it.copy(registrationSuccess = false) }
     }

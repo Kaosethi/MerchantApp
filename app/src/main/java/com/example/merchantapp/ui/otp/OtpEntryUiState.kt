@@ -1,23 +1,16 @@
-// File: app/src/main/java/com/example/merchantapp/ui/otp/OtpEntryUiState.kt
-package com.example.merchantapp.ui.otp // <<< CORRECT PACKAGE
+// File: app/src/main/java/com/example/merchantapp/ui/otp/OtpEntryUiState.kt (Example)
+package com.example.merchantapp.ui.otp
 
-/**
- * Represents the UI state for the OTP Entry screen.
- *
- * @property otpValue The 6-digit OTP entered by the user.
- * @property email The email address to which the OTP was supposedly sent (for display).
- * @property isLoading Indicates if OTP verification is in progress.
- * @property errorMessage Holds an error message string if an error occurred (e.g., invalid OTP).
- * @property isOtpVerified Indicates if the OTP has been successfully verified.
- * @property resendTimerSeconds The countdown timer for enabling the "Resend OTP" button (0 means enabled).
- * @property isResendEnabled True if the "Resend OTP" button should be enabled.
- */
+const val OTP_LENGTH_CONST = 6 // Use a const if OTP_LENGTH is used in UI too
+
 data class OtpEntryUiState(
+    val email: String, // Passed from previous screen
     val otpValue: String = "",
-    val email: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val isOtpVerified: Boolean = false,
-    val resendTimerSeconds: Int = 60, // Example: 60 second countdown
-    val isResendEnabled: Boolean = false
+    val apiMessage: String? = null,       // For success/info messages from API
+    val isOtpVerified: Boolean = false,   // True if OTP verification API call was successful
+    val resetAuthToken: String? = null,   // To store the token from backend
+    val isResendEnabled: Boolean = false,
+    val resendTimerSeconds: Int = 0
 )

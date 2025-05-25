@@ -7,11 +7,10 @@ import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.Logout
+// import androidx.compose.material.icons.automirrored.filled.Logout // REMOVED: Not needed here
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue // Keep explicit imports
-// Removed: import androidx.compose.runtime.setValue (not directly used)
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -33,7 +32,7 @@ import com.example.merchantapp.viewmodel.AmountEntryViewModel
 @Composable
 fun AmountEntryScreen(
     viewModel: AmountEntryViewModel = viewModel(),
-    onLogoutRequest: () -> Unit,
+    // onLogoutRequest: () -> Unit, // <<<< REMOVED PARAMETER
     onNavigateToQrScan: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -51,25 +50,29 @@ fun AmountEntryScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(stringResource(id = R.string.title_amount_entry)) },
-                actions = {
-                    IconButton(onClick = onLogoutRequest) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = stringResource(R.string.action_logout))
-                    }
-                }
+                title = { Text(stringResource(id = R.string.title_amount_entry)) }
+                // REMOVED actions parameter that contained the logout IconButton
+                // actions = {
+                //     IconButton(onClick = onLogoutRequest) { // This was the logout button here
+                //         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = stringResource(R.string.action_logout))
+                //     }
+                // }
             )
         }
     ) { innerPadding ->
         AmountNumpadContent(
             modifier = Modifier.padding(innerPadding),
             uiState = uiState,
-            onDigitClick = { digit -> viewModel.onDigitClick(digit) }, // Use Lambda
-            onDecimalClick = { viewModel.onDecimalClick() }, // Use Lambda
-            onBackspaceClick = { viewModel.onBackspaceClick() }, // Use Lambda
+            onDigitClick = { digit -> viewModel.onDigitClick(digit) },
+            onDecimalClick = { viewModel.onDecimalClick() },
+            onBackspaceClick = { viewModel.onBackspaceClick() },
             onProceedClick = proceedToScan
         )
     }
 }
+
+// AmountNumpadContent, AmountNumpad, NumpadButton, and Previews remain unchanged
+// as they don't directly involve the onLogoutRequest parameter.
 
 @Composable
 fun AmountNumpadContent(
@@ -88,8 +91,8 @@ fun AmountNumpadContent(
     ) {
         Spacer(Modifier.weight(1f))
         Text(
-            text = uiState.displayAmount, // Use displayAmount from state
-            style = MaterialTheme.typography.displayLarge, // Reverted to displayLarge
+            text = uiState.displayAmount,
+            style = MaterialTheme.typography.displayLarge,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
@@ -154,7 +157,7 @@ fun AmountNumpad(
             NumpadButton(text = "0", onClick = { onDigitClick('0') })
             NumpadButton(
                 icon = Icons.AutoMirrored.Filled.Backspace,
-                contentDescription = stringResource(R.string.pin_entry_backspace), // Check strings.xml
+                contentDescription = stringResource(R.string.pin_entry_backspace),
                 enabled = isBackspaceEnabled,
                 onClick = onBackspaceClick
             )
@@ -195,10 +198,11 @@ fun RowScope.NumpadButton(
 // --- Previews ---
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
-fun AmountNumpadScreenPreview() {
+fun AmountNumpadScreenPreview() { // Renamed Preview to avoid conflict if AmountEntryScreenPreview exists
     MerchantAppTheme {
+        // Pass only required parameters for the content preview
         AmountNumpadContent(
-            uiState = AmountEntryUiState(amount = "123.4", displayAmount = "$123.40", isAmountValid = true),
+            uiState = AmountEntryUiState(amount = "123.4", displayAmount = "฿123.40", isAmountValid = true),
             onDigitClick = {}, onDecimalClick = {}, onBackspaceClick = {}, onProceedClick = {}
         )
     }
