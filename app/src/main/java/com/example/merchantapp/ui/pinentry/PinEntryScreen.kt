@@ -69,11 +69,11 @@ fun PinEntryScreen(
     viewModel: PinEntryViewModel, // Pass the already created ViewModel
     onNavigateBack: () -> Unit,
     onPinVerifiedNavigateToSuccess: (
+        transactionId: String,
+        paymentId: String,
         amount: String,
-        beneficiaryId: String,
         beneficiaryName: String,
-        category: String,
-        transactionId: String
+        category: String
     ) -> Unit,
     onNavigateToOutcome: (
         outcomeType: OutcomeType,
@@ -91,11 +91,11 @@ fun PinEntryScreen(
             keyboardController?.hide()
             focusManager.clearFocus()
             onPinVerifiedNavigateToSuccess(
-                uiState.amount,
-                uiState.beneficiaryId,
-                uiState.beneficiaryName,
-                uiState.category,
-                uiState.transactionIdForSuccess!!
+                uiState.transactionIdForSuccess!!,  // trxId
+                uiState.beneficiaryId,              // payId
+                uiState.amount,                     // amt
+                uiState.beneficiaryName,            // name
+                uiState.category                    // category
             )
             viewModel.onSuccessfulNavigationConsumed()
         }

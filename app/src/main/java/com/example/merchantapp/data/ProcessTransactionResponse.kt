@@ -3,12 +3,12 @@ package com.example.merchantapp.data
 import com.google.gson.annotations.SerializedName
 
 data class ProcessTransactionResponse(
-    @SerializedName("transactionId")
+    @SerializedName("paymentDisplayId")
     val transactionId: String,
 
-    @SerializedName("status")
-    val status: String, // e.g., "Completed", "Failed", "Pending"
+    @SerializedName("transactionStatus")
+    val status: String,
 
     @SerializedName("message")
-    val message: String? // Optional message from the backend
+    val message: String?
 )

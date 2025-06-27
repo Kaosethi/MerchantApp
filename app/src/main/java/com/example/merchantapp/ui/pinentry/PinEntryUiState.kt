@@ -12,6 +12,7 @@ data class PinEntryUiState(
     val beneficiaryName: String = "",
     val category: String = "",
     val pinValue: String = "",
+    val displayId: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isPinVerifiedSuccessfully: Boolean = false, // Indicates transaction success

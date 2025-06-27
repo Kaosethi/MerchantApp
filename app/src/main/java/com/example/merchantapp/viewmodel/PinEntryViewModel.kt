@@ -51,10 +51,12 @@ class PinEntryViewModel(
     }
 
     init {
-        val navArgAmount = savedStateHandle.get<String>("amount")
+        val navArgAmount = savedStateHandle.get<String>("transactionAmount") // fixed
         val navArgBeneficiaryId = savedStateHandle.get<String>("beneficiaryId")
         val rawNavArgBeneficiaryName = savedStateHandle.get<String>("beneficiaryName")
         val navArgCategory = savedStateHandle.get<String>("category")
+        val navArgDisplayId = savedStateHandle.get<String>("beneficiaryDisplayId")
+
 
         val fixedNavArgBeneficiaryName = rawNavArgBeneficiaryName?.replace('+', ' ')
 
@@ -64,6 +66,8 @@ class PinEntryViewModel(
         val initialBeneficiaryId = navArgBeneficiaryId ?: "ERROR_NO_BENEFICIARY_ID"
         val initialBeneficiaryName = fixedNavArgBeneficiaryName ?: "Unknown Beneficiary"
         val initialCategory = navArgCategory ?: "Uncategorized"
+        val initialDisplayId = navArgDisplayId ?: "MISSING_DISPLAY_ID"
+
 
         _uiState.update {
             it.copy(
@@ -71,6 +75,7 @@ class PinEntryViewModel(
                 beneficiaryId = initialBeneficiaryId,
                 beneficiaryName = initialBeneficiaryName,
                 category = initialCategory,
+                displayId = initialDisplayId,
                 attemptsRemaining = MAX_ATTEMPTS,
                 isLocked = false,
                 pinValue = "",
@@ -82,6 +87,7 @@ class PinEntryViewModel(
         }
         Log.d("PinEntryViewModel", "INIT - uiState initialized: ${_uiState.value}")
     }
+
 
     fun onPinChange(newPinValue: String) {
         if (_uiState.value.isLocked) return
@@ -134,7 +140,7 @@ class PinEntryViewModel(
 
         viewModelScope.launch {
             val pinToSubmit = _uiState.value.pinValue
-            val beneficiaryIdForRequest = _uiState.value.beneficiaryId
+            val beneficiaryIdForRequest = uiState.value.displayId ?: "UNKNOWN_DISPLAY_ID"
             val amountForRequest = _uiState.value.amount
             val categoryForRequest = _uiState.value.category
 

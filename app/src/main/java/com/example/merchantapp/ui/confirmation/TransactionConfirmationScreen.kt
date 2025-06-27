@@ -53,8 +53,15 @@ fun TransactionConfirmationScreen(
     amount: String,
     beneficiaryId: String,
     beneficiaryName: String,
+    displayId: String,
     onNavigateBack: () -> Unit,
-    onConfirmAndProcess: (amount: String, beneficiaryId: String, beneficiaryName: String, category: String) -> Unit
+    onConfirmAndProcess: (
+        confirmedAmount: String,
+        confirmedBeneficiaryId: String,
+        confirmedBeneficiaryName: String,
+        confirmedDisplayId: String, // ✅ Add this
+        confirmedCategory: String
+    ) -> Unit
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf("") }
     var isDropdownExpanded by remember { mutableStateOf(false) }
@@ -108,7 +115,7 @@ fun TransactionConfirmationScreen(
                     Text(beneficiaryName, style = MaterialTheme.typography.bodyLarge)
                     Spacer(Modifier.height(12.dp))
                     Text(stringResource(R.string.confirm_label_account_id).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                    Text(beneficiaryId, style = MaterialTheme.typography.bodyLarge)
+                    Text(displayId, style = MaterialTheme.typography.bodyLarge)
                 }
             }
 
@@ -170,8 +177,8 @@ fun TransactionConfirmationScreen(
             Button(
                 enabled = selectedCategory.isNotEmpty(),
                 onClick = {
-                    Log.d("ConfirmScreen", "Confirm button clicked. Category: $selectedCategory, Amount: $amount, BeneficiaryID: $beneficiaryId")
-                    onConfirmAndProcess(amount, beneficiaryId, beneficiaryName, selectedCategory)
+                    Log.d("ConfirmScreen", "Calling onConfirmAndProcess with amount=$amount, id=$beneficiaryId, name=$beneficiaryName, displayId=$displayId, category=$selectedCategory")
+                    onConfirmAndProcess(amount, beneficiaryId, beneficiaryName, displayId, selectedCategory)
 
                 },
                 modifier = Modifier
@@ -183,18 +190,3 @@ fun TransactionConfirmationScreen(
         }
     }
 }
-
-@Preview(showBackground = true, device = "id:pixel_5")
-@Composable
-private fun TransactionConfirmationScreenPreview() {
-    MerchantAppTheme {
-        TransactionConfirmationScreen(
-            amount = "150.00", // Example THB amount
-            beneficiaryId = "BEN-123456789",
-            beneficiaryName = "Preview User Name",
-            onNavigateBack = {},
-            onConfirmAndProcess = { _, _, _, _ -> }
-        )
-    }
-}
-

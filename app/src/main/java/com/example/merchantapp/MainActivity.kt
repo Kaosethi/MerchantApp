@@ -1,8 +1,14 @@
 package com.example.merchantapp
 
+// import com.example.merchantapp.navigation.BottomNavDestinations // Unused import
+
+// Screen Imports
+
+// ViewModel Imports
+
 import android.app.Application
 import android.content.Context
-import android.net.Uri // For Uri.decode
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -20,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -31,14 +36,13 @@ import com.example.merchantapp.auth.AuthEventBus
 import com.example.merchantapp.data.local.AuthManager
 import com.example.merchantapp.navigation.AppDestinations
 import com.example.merchantapp.navigation.AppNavigationActions
-// import com.example.merchantapp.navigation.BottomNavDestinations // Unused import
-
-// Screen Imports
 import com.example.merchantapp.ui.confirmation.TransactionConfirmationScreen
 import com.example.merchantapp.ui.forgotpassword.ForgotPasswordScreen
 import com.example.merchantapp.ui.login.LoginScreen
 import com.example.merchantapp.ui.main.MainScreen
 import com.example.merchantapp.ui.otp.OtpEntryScreen
+import com.example.merchantapp.ui.outcome.OutcomeType
+import com.example.merchantapp.ui.outcome.TransactionOutcomeScreen
 import com.example.merchantapp.ui.pinentry.PinEntryScreen
 import com.example.merchantapp.ui.pinentry.PinEntryViewModelFactory
 import com.example.merchantapp.ui.qr.QrScanScreen
@@ -48,10 +52,6 @@ import com.example.merchantapp.ui.summary.TransactionHistoryScreen
 import com.example.merchantapp.ui.summary.TransactionHistoryViewModelFactory
 import com.example.merchantapp.ui.theme.MerchantAppTheme
 import com.example.merchantapp.ui.transactionsuccess.TransactionSuccessScreen
-import com.example.merchantapp.ui.outcome.TransactionOutcomeScreen
-import com.example.merchantapp.ui.outcome.OutcomeType
-
-// ViewModel Imports
 import com.example.merchantapp.viewmodel.ForgotPasswordViewModel
 import com.example.merchantapp.viewmodel.LoginViewModel
 import com.example.merchantapp.viewmodel.OtpEntryViewModel
@@ -60,7 +60,6 @@ import com.example.merchantapp.viewmodel.QrScanViewModel
 import com.example.merchantapp.viewmodel.RegisterViewModel
 import com.example.merchantapp.viewmodel.SetNewPasswordViewModel
 import com.example.merchantapp.viewmodel.TransactionHistoryViewModel
-
 import kotlinx.coroutines.flow.collectLatest
 
 class MainActivity : ComponentActivity() {
@@ -201,14 +200,14 @@ fun AppNavigation(applicationContext: Context) {
             val qrViewModel: QrScanViewModel = viewModel()
             val uiState by qrViewModel.uiState.collectAsState()
 
-            LaunchedEffect(uiState.validationSuccess, uiState.validatedBeneficiary, navController) {
+            LaunchedEffect(uiState.validationSuccess, uiState.validatedBeneficiary) {
                 if (uiState.validationSuccess && uiState.validatedBeneficiary != null) {
-                    val beneficiary = uiState.validatedBeneficiary!!
-                    val amountFromViewModel = uiState.amount
+                    val b = uiState.validatedBeneficiary!!
                     navigationActions.navigateToTransactionConfirmation(
-                        amount = amountFromViewModel,
-                        beneficiaryId = beneficiary.id,
-                        beneficiaryName = beneficiary.name
+                        amount = uiState.amount,
+                        beneficiaryId = b.accountUuid,
+                        beneficiaryName = b.name,
+                        beneficiaryDisplayId = b.displayId // ✅ Add this line back
                     )
                     qrViewModel.onNavigationHandled()
                 }
@@ -222,68 +221,73 @@ fun AppNavigation(applicationContext: Context) {
         composable(
             route = AppDestinations.TRANSACTION_CONFIRMATION_ROUTE_PATTERN,
             arguments = listOf(
-                navArgument("amount") { type = NavType.StringType },
+                navArgument("transactionAmount") { type = NavType.StringType },
                 navArgument("beneficiaryId") { type = NavType.StringType },
-                navArgument("beneficiaryName") { type = NavType.StringType }
+                navArgument("beneficiaryName") { type = NavType.StringType },
+                navArgument("beneficiaryDisplayId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val amount = backStackEntry.arguments?.getString("amount")?.let { Uri.decode(it) } ?: "Error"
-            val beneficiaryId = backStackEntry.arguments?.getString("beneficiaryId")?.let { Uri.decode(it) } ?: "Error"
-            val beneficiaryName = backStackEntry.arguments?.getString("beneficiaryName")?.let { Uri.decode(it) } ?: "Error"
+            val args = backStackEntry.arguments!!
+            val amount = Uri.decode(args.getString("transactionAmount"))
+            val beneficiaryId = Uri.decode(args.getString("beneficiaryId"))
+            val beneficiaryName = Uri.decode(args.getString("beneficiaryName"))
+            val displayId = Uri.decode(args.getString("beneficiaryDisplayId")) // ✅ new
 
             TransactionConfirmationScreen(
                 amount = amount,
                 beneficiaryId = beneficiaryId,
                 beneficiaryName = beneficiaryName,
+                displayId = displayId, // ✅ new
                 onNavigateBack = { navigationActions.navigateUp() },
-                onConfirmAndProcess = { confirmedAmount, confirmedBeneficiaryId, confirmedBeneficiaryName, confirmedCategory ->
+                onConfirmAndProcess = { confirmedAmount, confirmedBeneficiaryId, confirmedBeneficiaryName, confirmedDisplayId, confirmedCategory ->
                     navigationActions.navigateToPinEntry(
                         confirmedAmount,
                         confirmedBeneficiaryId,
                         confirmedBeneficiaryName,
+                        confirmedDisplayId,
                         confirmedCategory
                     )
                 }
+
             )
         }
+
 
         composable(
             route = AppDestinations.PIN_ENTRY_ROUTE_PATTERN,
             arguments = listOf(
-                navArgument("amount") { type = NavType.StringType },
+                navArgument("transactionAmount") { type = NavType.StringType },
                 navArgument("beneficiaryId") { type = NavType.StringType },
                 navArgument("beneficiaryName") { type = NavType.StringType },
+                navArgument("beneficiaryDisplayId") { type = NavType.StringType }, // ✅ must match!
                 navArgument("category") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val currentApplication = LocalContext.current.applicationContext as Application
+            val args = backStackEntry.arguments!!
+            val amount = Uri.decode(args.getString("transactionAmount"))
+            val beneficiaryId = Uri.decode(args.getString("beneficiaryId"))
+            val beneficiaryName = Uri.decode(args.getString("beneficiaryName"))
+            val displayId = Uri.decode(args.getString("beneficiaryDisplayId")) // ✅ must decode
+            val category = Uri.decode(args.getString("category"))
+
+            val app = LocalContext.current.applicationContext as Application
             val pinEntryViewModel: PinEntryViewModel = viewModel(
                 viewModelStoreOwner = backStackEntry,
                 factory = PinEntryViewModelFactory(
                     owner = backStackEntry,
-                    application = currentApplication,
-                    defaultArgs = backStackEntry.arguments
+                    application = app,
+                    defaultArgs = args
                 )
             )
-            LaunchedEffect(pinEntryViewModel) {
-                Log.d("AppNavigation/PinEntry", "PinEntryViewModel created. Check ViewModel logs for SSH content.")
-            }
+
             PinEntryScreen(
                 viewModel = pinEntryViewModel,
                 onNavigateBack = { navigationActions.navigateUp() },
-                onPinVerifiedNavigateToSuccess = { amountVal, beneficiaryIdFromVM, beneficiaryNameFromVM, categoryFromVM, transactionId ->
-                    navigationActions.navigateToTransactionSuccess(
-                        transactionId = transactionId,
-                        amount = amountVal,
-                        beneficiaryId = beneficiaryIdFromVM,
-                        beneficiaryName = beneficiaryNameFromVM,
-                        category = categoryFromVM
-                    )
+                onPinVerifiedNavigateToSuccess = { trxId, payId, amt, name, category ->
+                    navigationActions.navigateToTransactionSuccess(trxId, payId, amt, name, category)
                 },
-                onNavigateToOutcome = { outcomeType, title, message, buttonLabel ->
-                    navigationActions.navigateToTransactionOutcome(
-                        outcomeType, title, message, buttonLabel
-                    )
+                onNavigateToOutcome = { type, title, msg, btn ->
+                    navigationActions.navigateToTransactionOutcome(type, title, msg, btn)
                 }
             )
         }

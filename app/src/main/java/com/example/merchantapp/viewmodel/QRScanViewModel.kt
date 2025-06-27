@@ -95,7 +95,7 @@ class QrScanViewModel(
                     // Explicitly type beneficiaryDetails with the imported ValidatedBeneficiary
                     val beneficiaryDetails: ValidatedBeneficiary? = response.body()
                     if (beneficiaryDetails != null) {
-                        Log.i("QrScanViewModel", "Backend Validation Success. Beneficiary ID: ${beneficiaryDetails.id}, Name: ${beneficiaryDetails.name}")
+                        Log.i("QrScanViewModel", "Backend Validation Success. Beneficiary ID: ${beneficiaryDetails.accountUuid}, Name: ${beneficiaryDetails.name}")
                         _uiState.update {
                             it.copy(
                                 isLoading = false,

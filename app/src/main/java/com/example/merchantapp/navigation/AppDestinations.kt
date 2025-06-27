@@ -17,8 +17,10 @@ object AppDestinations {
     const val SET_NEW_PASSWORD_ROUTE_PATTERN = "set_new_password/{email}/{resetAuthToken}" // Keys: "email", "resetAuthToken"
 
     const val QR_SCAN_ROUTE_PATTERN = "qr_scan/{amount}"
-    const val TRANSACTION_CONFIRMATION_ROUTE_PATTERN = "transaction_confirmation/{amount}/{beneficiaryId}/{beneficiaryName}"
-    const val PIN_ENTRY_ROUTE_PATTERN = "pin_entry/{amount}/{beneficiaryId}/{beneficiaryName}/{category}"
+    const val TRANSACTION_CONFIRMATION_ROUTE_PATTERN =
+        "transaction_confirmation/{transactionAmount}/{beneficiaryId}/{beneficiaryName}/{beneficiaryDisplayId}"
+    const val PIN_ENTRY_ROUTE_PATTERN =
+        "pin_entry/{transactionAmount}/{beneficiaryId}/{beneficiaryName}/{beneficiaryDisplayId}/{category}"
     const val TRANSACTION_SUCCESS_ROUTE_PATTERN = "transaction_success/{transactionId}/{amount}/{beneficiaryId}/{beneficiaryName}/{category}"
     const val TRANSACTION_OUTCOME_ROUTE_PATTERN = "transaction_outcome/{outcomeType}/{title}/{message}/{buttonLabel}"
 
@@ -41,18 +43,31 @@ object AppDestinations {
         return QR_SCAN_ROUTE_PATTERN.replace("{amount}", Uri.encode(amount))
     }
 
-    fun createTransactionConfirmationRoute(amount: String, beneficiaryId: String, beneficiaryName: String): String {
+    fun createTransactionConfirmationRoute(
+        transactionAmount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        beneficiaryDisplayId: String
+    ): String {
         return TRANSACTION_CONFIRMATION_ROUTE_PATTERN
-            .replace("{amount}", Uri.encode(amount))
+            .replace("{transactionAmount}", Uri.encode(transactionAmount))
             .replace("{beneficiaryId}", Uri.encode(beneficiaryId))
             .replace("{beneficiaryName}", Uri.encode(beneficiaryName))
+            .replace("{beneficiaryDisplayId}", Uri.encode(beneficiaryDisplayId))
     }
 
-    fun createPinEntryRoute(amount: String, beneficiaryId: String, beneficiaryName: String, category: String): String {
+    fun createPinEntryRoute(
+        transactionAmount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        beneficiaryDisplayId: String,
+        category: String
+    ): String {
         return PIN_ENTRY_ROUTE_PATTERN
-            .replace("{amount}", Uri.encode(amount))
+            .replace("{transactionAmount}", Uri.encode(transactionAmount))
             .replace("{beneficiaryId}", Uri.encode(beneficiaryId))
             .replace("{beneficiaryName}", Uri.encode(beneficiaryName))
+            .replace("{beneficiaryDisplayId}", Uri.encode(beneficiaryDisplayId))
             .replace("{category}", Uri.encode(category))
     }
 
@@ -131,12 +146,36 @@ class AppNavigationActions(private val navController: NavHostController) {
         navController.navigate(AppDestinations.createQrScanRoute(amount))
     }
 
-    fun navigateToTransactionConfirmation(amount: String, beneficiaryId: String, beneficiaryName: String) {
-        navController.navigate(AppDestinations.createTransactionConfirmationRoute(amount, beneficiaryId, beneficiaryName))
+    fun navigateToTransactionConfirmation(
+        amount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        beneficiaryDisplayId: String
+    ) {
+        val route = AppDestinations.createTransactionConfirmationRoute(
+            transactionAmount = amount,
+            beneficiaryId = beneficiaryId,
+            beneficiaryName = beneficiaryName,
+            beneficiaryDisplayId = beneficiaryDisplayId // ✅ include this
+        )
+        navController.navigate(route)
     }
 
-    fun navigateToPinEntry(amount: String, beneficiaryId: String, beneficiaryName: String, category: String) {
-        navController.navigate(AppDestinations.createPinEntryRoute(amount, beneficiaryId, beneficiaryName, category))
+    fun navigateToPinEntry(
+        amount: String,
+        beneficiaryId: String,
+        beneficiaryName: String,
+        beneficiaryDisplayId: String,
+        category: String
+    ) {
+        val route = AppDestinations.createPinEntryRoute(
+            transactionAmount = amount,
+            beneficiaryId = beneficiaryId,
+            beneficiaryName = beneficiaryName,
+            beneficiaryDisplayId = beneficiaryDisplayId,
+            category = category
+        )
+        navController.navigate(route)
     }
 
     fun navigateToTransactionSuccess(
